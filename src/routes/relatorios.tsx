@@ -4,7 +4,12 @@ import { FileDown, Printer } from "lucide-react";
 import { AppShell } from "@/components/dp/AppShell";
 import { Notice, Panel, Row, Stat } from "@/components/dp/primitives";
 import { Button } from "@/components/ui/button";
-import { comparability, deviation, tankToTankConsumption, tripPhysicalKmPerL } from "@/lib/dp/analysis";
+import {
+  comparability,
+  deviation,
+  tankToTankConsumption,
+  tripPhysicalKmPerL,
+} from "@/lib/dp/analysis";
 import {
   exportEvidenceManifestCsv,
   exportFuelingsCsv,
@@ -17,13 +22,13 @@ import { useDb } from "@/lib/dp/store";
 export const Route = createFileRoute("/relatorios")({
   head: () => ({
     meta: [
-      { title: "Relatórios e comparabilidade — DriveProof" },
+      { title: "Relatórios e comparabilidade — CARVRUM" },
       {
         name: "description",
         content:
           "Compare viagens, veja consumo físico contra o indicado pelo veículo e exporte os registros em CSV ou PDF.",
       },
-      { property: "og:title", content: "Relatórios e comparabilidade — DriveProof" },
+      { property: "og:title", content: "Relatórios e comparabilidade — CARVRUM" },
       {
         property: "og:description",
         content: "Índice de comparabilidade explicável, desvios de consumo e exportação de dados.",
@@ -66,8 +71,8 @@ function Relatorios() {
           </Button>
         </div>
         <Notice>
-          O PDF é gerado pelo próprio navegador: escolha “Salvar como PDF” na janela de
-          impressão. É o caminho disponível em um app web no iPhone.
+          O PDF é gerado pelo próprio navegador: escolha “Salvar como PDF” na janela de impressão. É
+          o caminho disponível em um app web no iPhone.
         </Notice>
 
         <Panel title="Consumo por viagem">
@@ -79,7 +84,6 @@ function Relatorios() {
               const dev = deviation(phys, t.indicatedKmPerL);
               return (
                 <div
-
                   key={t.id}
                   className="border-b border-border/60 py-3 last:border-0 last:pb-0 first:pt-0"
                 >
@@ -97,7 +101,6 @@ function Relatorios() {
                   </p>
                 </div>
               );
-
             })
           )}
         </Panel>
@@ -129,7 +132,10 @@ function Relatorios() {
                   .slice()
                   .sort((x, y) => x.score - y.score)
                   .map((f) => (
-                    <div key={f.name} className="rounded-md border border-border bg-secondary/30 p-3">
+                    <div
+                      key={f.name}
+                      className="rounded-md border border-border bg-secondary/30 p-3"
+                    >
                       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
                         <p className="min-w-0 truncate text-sm font-medium">{f.name}</p>
                         <p className="numeric shrink-0 text-sm">
@@ -149,8 +155,16 @@ function Relatorios() {
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <Stat label={`A · ${a!.label}`} value={fmtNum(tripPhysicalKmPerL(a!), 2)} unit="km/L" />
-                <Stat label={`B · ${b!.label}`} value={fmtNum(tripPhysicalKmPerL(b!), 2)} unit="km/L" />
+                <Stat
+                  label={`A · ${a!.label}`}
+                  value={fmtNum(tripPhysicalKmPerL(a!), 2)}
+                  unit="km/L"
+                />
+                <Stat
+                  label={`B · ${b!.label}`}
+                  value={fmtNum(tripPhysicalKmPerL(b!), 2)}
+                  unit="km/L"
+                />
               </div>
 
               <Notice tone={comp.score < 70 ? "warning" : "info"}>

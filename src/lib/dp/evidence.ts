@@ -2,6 +2,7 @@ import { putBlob } from "./blobs";
 import { sha256OfBlob } from "./hash";
 import { addEvidence, uid } from "./store";
 import type { Evidence, EvidenceCategory } from "./types";
+import { EVIDENCE_TYPES, MAX_EVIDENCE_SIZE } from "./evidenceCloud";
 
 export async function currentPosition(): Promise<GeolocationPosition | null> {
   if (typeof navigator === "undefined" || !("geolocation" in navigator)) return null;
@@ -28,6 +29,13 @@ export async function registerEvidence(opts: {
   note?: string;
   position?: GeolocationPosition | null;
 }): Promise<Evidence> {
+  if (
+    !EVIDENCE_TYPES.has(opts.file.type) ||
+    opts.file.size <= 0 ||
+    opts.file.size > MAX_EVIDENCE_SIZE
+  ) {
+    throw Error("Use JPEG, PNG, WebP ou PDF de até 20 MB. O original não foi alterado.");
+  }
   const pos = opts.position ?? (await currentPosition());
   const sha256 = await sha256OfBlob(opts.file);
   const id = uid("ev");
@@ -37,7 +45,8 @@ export async function registerEvidence(opts: {
     tripId: opts.tripId ?? null,
     fuelingId: opts.fuelingId ?? null,
     category: opts.category,
-    fileName: opts.fileName ?? (opts.file instanceof File ? opts.file.name : `${opts.category}.jpg`),
+    fileName:
+      opts.fileName ?? (opts.file instanceof File ? opts.file.name : `${opts.category}.jpg`),
     mimeType: opts.file.type || "image/jpeg",
     sizeBytes: opts.file.size,
     capturedAt: Date.now(),

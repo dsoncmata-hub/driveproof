@@ -1,20 +1,32 @@
-# DriveProof
+# CARVRUM
 
-Aplicativo de registro de viagens, consumo de combustível e evidências técnicas, baseado em React, TypeScript e TanStack Start.
+Registro de viagens por GPS, abastecimentos, rendimento por posto e evidências originais. React, TypeScript, TanStack Start, Supabase e Vercel; desenvolvimento independente de editores visuais.
 
-## Desenvolvimento independente
-
-Este repositório é independente de editores visuais. Código-fonte versionado no GitHub, hospedagem prevista na Vercel. Supabase será adicionado após configuração da organização e do modelo de dados.
-
-## Iniciar
+## Verificar
 
 ```bash
-npm install
-npm run dev
+npm ci --ignore-scripts
+npm run test
+npm run typecheck
+npm run lint:core
 npm run build
-npx vitest run src/lib/dp
+npx playwright install chromium --only-shell
+npm run test:e2e
 ```
 
-Estado atual: protótipo em migração e ainda não aprovado para uso em produção. GPS em segundo plano no iOS exige testes nativos; os relatórios não constituem prova pericial automática. A pressão oficial dos pneus deve ser inserida pelo proprietário segundo a etiqueta do veículo.
+`npm run dev -- --host 127.0.0.1` inicia o ambiente local. Os testes de navegador utilizam dados fictícios e interceptam requisições de autenticação/sincronização; os testes SQL de isolamento são separados em `tests/security/rls-cas.sql` e revertem todas as fixtures.
 
-**Privacidade:** não subir ao repositório coordenadas, evidências pessoais, segredos, tokens ou chaves privadas. Base de dados atual local do navegador. Faça backup dos dados antes de limpar o navegador.
+## Estado comercial
+
+A versão web não é um aplicativo nativo publicado. GPS em segundo plano exige integração e testes em aparelhos físicos. Nenhum relatório constitui prova pericial automática. Pressão oficial dos pneus deve vir da etiqueta do veículo.
+
+- [Validação executada](docs/VALIDATION_2026-10-08.md)
+- [Checklist do MVP](docs/MVP_RELEASE_GATE.md)
+- [Plano de submissão às lojas](docs/STORE_SUBMISSION_PLAN.md)
+
+## Dados
+
+Registros existentes e nomes das chaves locais permanecem compatíveis. Originais ficam no IndexedDB e, após envio explícito, no Storage privado. Sincronização usa revisão atômica e bloqueia operações de outra conta sobre os registros locais. Não subir coordenadas, fotografias pessoais, tokens ou chaves privadas ao GitHub.
+
+Supabase: `pylmernfpgcwxylzcbqi`. Implantação web existente: https://driveproof-taupe.vercel.app/.
+A rotina de backup a cada 12 horas foi preservada. Não limpar armazenamento local antes de confirmar a disponibilidade de registros e originais em outro aparelho.

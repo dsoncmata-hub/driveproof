@@ -28,11 +28,9 @@ export function AppShell({
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur no-print">
         <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
           <div className="min-w-0">
-            <p className="label-tec">DriveProof · registro técnico</p>
+            <p className="label-tec">CARVRUM · registro técnico</p>
             <h1 className="truncate text-lg font-semibold">{title}</h1>
-            {subtitle ? (
-              <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
-            ) : null}
+            {subtitle ? <p className="truncate text-xs text-muted-foreground">{subtitle}</p> : null}
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}
         </div>

@@ -30,3 +30,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.vercel/
+supabase/.temp/
+.env
+.env.*
+test-results/
+playwright-report/

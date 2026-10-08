@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MS_TO_KMH, elevationGainM, totalDistanceKm } from "./geo";
+import { MS_TO_KMH, tripMetrics, validTrackPoint } from "./geo";
 import { patchTrip, readDb } from "./store";
 import type { TrackPoint } from "./types";
 
@@ -46,7 +46,7 @@ export function useTripEngine(activeTripId: string | null) {
   const snoozeUntil = useRef<number>(0);
   const activeTripIdRef = useRef<string | null>(activeTripId);
   const flushTimer = useRef<number | null>(null);
-  const buffer = useRef<TrackPoint[]>([]);
+  const buffer = useRef<{ tripId: string; point: TrackPoint }[]>([]);
 
   useEffect(() => {
     activeTripIdRef.current = activeTripId;
@@ -54,23 +54,24 @@ export function useTripEngine(activeTripId: string | null) {
   }, [activeTripId]);
 
   const flush = useCallback(() => {
-    const tripId = activeTripIdRef.current;
-    if (!tripId || buffer.current.length === 0) return;
-    const trip = readDb().trips.find((t) => t.id === tripId);
-    if (!trip) return;
-    const points = [...trip.points, ...buffer.current];
-    buffer.current = [];
-    const distanceKm = totalDistanceKm(points);
-    const speeds = points.map((p) => (p.speed ?? 0) * MS_TO_KMH);
-    const elapsedH = Math.max((Date.now() - trip.startedAt) / 3_600_000, 1 / 3600);
-    patchTrip(tripId, {
-      points,
-      distanceKm,
-      maxSpeedKmh: Math.max(0, ...speeds),
-      avgSpeedKmh: distanceKm / elapsedH,
-      elevationGainM: elevationGainM(points),
-      movingSeconds: Math.round((Date.now() - trip.startedAt) / 1000),
-    });
+    for (const tripId of new Set(buffer.current.map((sample) => sample.tripId))) {
+      const trip = readDb().trips.find((t) => t.id === tripId);
+      if (!trip) continue;
+      const points = [...trip.points];
+      for (const sample of buffer.current.filter((s) => s.tripId === tripId)) {
+        if (
+          sample.point.t >= trip.startedAt &&
+          sample.point.t > (points.at(-1)?.t ?? 0) &&
+          (!trip.endedAt || sample.point.t <= trip.endedAt)
+        )
+          points.push(sample.point);
+      }
+      patchTrip(tripId, {
+        points,
+        ...tripMetrics(points, trip.startedAt, trip.endedAt ?? Date.now()),
+      });
+      buffer.current = buffer.current.filter((s) => s.tripId !== tripId);
+    }
   }, []);
 
   const onPosition = useCallback(
@@ -83,11 +84,15 @@ export function useTripEngine(activeTripId: string | null) {
         altitude: pos.coords.altitude,
         accuracy: pos.coords.accuracy,
       };
+      if (!validTrackPoint(p)) return;
       const kmh = (p.speed ?? 0) > 0 ? (p.speed as number) * MS_TO_KMH : 0;
       const now = Date.now();
 
+      // Read synchronously: React may not have committed the new trip ID yet.
+      activeTripIdRef.current = readDb().activeTripId;
       if (activeTripIdRef.current) {
-        buffer.current.push(p);
+        buffer.current.push({ tripId: activeTripIdRef.current, point: p });
+        flush();
         if (kmh < STOP_SPEED_KMH) {
           belowSince.current ??= now;
         } else {
@@ -119,7 +124,7 @@ export function useTripEngine(activeTripId: string | null) {
           now >= snoozeUntil.current,
       }));
     },
-    [],
+    [flush],
   );
 
   const start = useCallback(() => {
@@ -129,13 +134,17 @@ export function useTripEngine(activeTripId: string | null) {
     }
     if (watchId.current != null) return;
     setState((s) => ({ ...s, status: "solicitando" }));
-    watchId.current = navigator.geolocation.watchPosition(onPosition, (err) => {
-      setState((s) => ({
-        ...s,
-        status: err.code === err.PERMISSION_DENIED ? "negado" : "erro",
-        errorMessage: err.message,
-      }));
-    }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 20_000 });
+    watchId.current = navigator.geolocation.watchPosition(
+      onPosition,
+      (err) => {
+        setState((s) => ({
+          ...s,
+          status: err.code === err.PERMISSION_DENIED ? "negado" : "erro",
+          errorMessage: err.message,
+        }));
+      },
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 20_000 },
+    );
     flushTimer.current = window.setInterval(flush, 5000);
   }, [flush, onPosition]);
 
@@ -153,6 +162,16 @@ export function useTripEngine(activeTripId: string | null) {
   }, [flush]);
 
   useEffect(() => () => stop(), [stop]);
+
+  useEffect(() => {
+    const persist = () => flush();
+    window.addEventListener("pagehide", persist);
+    document.addEventListener("visibilitychange", persist);
+    return () => {
+      window.removeEventListener("pagehide", persist);
+      document.removeEventListener("visibilitychange", persist);
+    };
+  }, [flush]);
 
   const dismissStartSuggestion = useCallback(() => {
     aboveSince.current = null;

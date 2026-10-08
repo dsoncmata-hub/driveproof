@@ -10,12 +10,12 @@ import { deleteTrip, useDb } from "@/lib/dp/store";
 export const Route = createFileRoute("/historico/")({
   head: () => ({
     meta: [
-      { title: "Histórico de viagens — DriveProof" },
+      { title: "Histórico de viagens — CARVRUM" },
       {
         name: "description",
         content: "Todas as viagens registradas com distância, velocidades, condições e evidências.",
       },
-      { property: "og:title", content: "Histórico de viagens — DriveProof" },
+      { property: "og:title", content: "Histórico de viagens — CARVRUM" },
       {
         property: "og:description",
         content: "Consulte viagens registradas, condições de teste e evidências associadas.",
@@ -33,8 +33,8 @@ function Historico() {
       <div className="space-y-3">
         {db.trips.length === 0 ? (
           <Notice>
-            Nenhuma viagem registrada. Inicie uma viagem ou carregue os dados de
-            demonstração na tela inicial.
+            Nenhuma viagem registrada. Inicie uma viagem ou carregue os dados de demonstração na
+            tela inicial.
           </Notice>
         ) : null}
 
@@ -56,7 +56,9 @@ function Historico() {
                       </span>
                     ) : null}
                   </div>
-                  <p className="numeric text-xs text-muted-foreground">{fmtDateTime(t.startedAt)}</p>
+                  <p className="numeric text-xs text-muted-foreground">
+                    {fmtDateTime(t.startedAt)}
+                  </p>
                   <p className="numeric mt-1 text-sm text-data">
                     {fmtNum(t.distanceKm, 2, " km")} · méd. {fmtNum(t.avgSpeedKmh, 0, " km/h")} ·
                     máx. {fmtNum(t.maxSpeedKmh, 0, " km/h")}
