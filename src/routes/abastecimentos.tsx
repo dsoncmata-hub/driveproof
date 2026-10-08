@@ -56,11 +56,25 @@ function Abastecimentos() {
     const l = liters === "" ? null : Number(liters);
     const p = price === "" ? null : Number(price);
     const t = total === "" ? (l != null && p != null ? Number((l * p).toFixed(2)) : null) : Number(total);
+    const odo = odometer === "" ? null : Number(odometer);
+    if (odo == null || !Number.isFinite(odo) || odo < 0) {
+      toast.error("Informe um hodômetro válido para registrar o abastecimento.");
+      return;
+    }
+    if (l == null || !Number.isFinite(l) || l <= 0) {
+      toast.error("Informe a quantidade de litros maior que zero.");
+      return;
+    }
+    if ((p != null && (!Number.isFinite(p) || p <= 0)) ||
+        (t != null && (!Number.isFinite(t) || t <= 0))) {
+      toast.error("Preço e valor total, quando informados, devem ser positivos.");
+      return;
+    }
     const id = uid("fuel");
     addFueling({
       id,
       at: Date.now(),
-      odometer: odometer === "" ? null : Number(odometer),
+      odometer: odo,
       liters: l,
       pricePerLiter: p,
       totalValue: t,
