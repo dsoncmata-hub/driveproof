@@ -76,7 +76,8 @@ export function CloudRestore({ userId }: { userId: string }) {
         throw e;
       }
       writeDb(row.snapshot);
-      toast.success("Registros recuperados da nuvem. Confira Histórico e Abastecimentos.");
+      toast.success("Registros recuperados da nuvem. Atualizando a tela…");
+      window.location.reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível recuperar os dados.");
     } finally {
