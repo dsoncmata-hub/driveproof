@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/dp/supabase";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/dp/primitives";
+import { CloudBackup } from "@/components/dp/CloudBackup";
 
 export function CloudAccount() {
   const [user, setUser] = useState<User | null>(null);
@@ -83,6 +84,7 @@ export function CloudAccount() {
             A conta foi autenticada. A sincronização dos registros ainda não foi ativada;
             viagens e abastecimentos continuam salvos somente neste aparelho.
           </p>
+          <CloudBackup userId={user.id} />
           <Button type="button" variant="secondary" disabled={busy} onClick={signOut}>
             Sair da conta
           </Button>
