@@ -94,7 +94,7 @@ function Abastecimentos() {
     setNote("");
     setOpen(false);
     toast.success("Abastecimento registrado", {
-      description: fullTank ? "Marcado como tanque cheio." : "Parcial: fora do cálculo bomba-a-bomba.",
+      description: fullTank ? "Marcado como tanque cheio." : "Abastecimento parcial registrado; seus litros integram o ciclo até o próximo tanque cheio.",
     });
   }
 
