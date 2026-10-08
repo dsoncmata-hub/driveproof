@@ -12,6 +12,11 @@ export function CloudBackup({ userId }: { userId: string }) {
 
   async function saveBackup() {
     const snapshot = readDb();
+    if (snapshot.activeTripId) {
+      toast.error("Finalize ou descarte a viagem em andamento antes de salvar o backup.");
+      return;
+    }
+    const hasRecords = snapshot.trips.length + snapshot.fuelings.length + snapshot.evidences.length + snapshot.stations.length > 0;
     const bytes = new TextEncoder().encode(JSON.stringify(snapshot)).length;
     if (bytes > MAX_BYTES) {
       toast.error("Registros grandes demais para o backup inicial. Nenhum dado foi alterado.");
@@ -22,6 +27,12 @@ export function CloudBackup({ userId }: { userId: string }) {
     try {
       const { data: auth, error: authError } = await supabase.auth.getUser();
       if (authError || auth.user?.id !== userId) throw new Error("Sessão não confirmada. Entre novamente.");
+      const { data: previousBackup, error: lookupError } = await supabase.from("local_backups")
+        .select("saved_at,snapshot").eq("user_id", userId).maybeSingle();
+      if (lookupError) throw lookupError;
+      if (!hasRecords && previousBackup) {
+        throw new Error("Backup não enviado: este aparelho não contém registros e já existe uma cópia na nuvem.");
+      }
       const { error } = await supabase.from("local_backups").upsert({
         user_id: userId,
         snapshot,
@@ -29,6 +40,9 @@ export function CloudBackup({ userId }: { userId: string }) {
         saved_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
       if (error) throw error;
+      const { data: verified, error: verifyError } = await supabase.from("local_backups")
+        .select("saved_at").eq("user_id", userId).single();
+      if (verifyError || !verified) throw new Error("O backup foi enviado, mas não foi possível confirmar a gravação.");
       toast.success("Backup concluído na nuvem. Os registros do aparelho foram preservados.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao salvar o backup.");
