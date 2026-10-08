@@ -7,6 +7,7 @@ import { Panel } from "@/components/dp/primitives";
 import { CloudBackup } from "@/components/dp/CloudBackup";
 import { CloudAutoSync } from "@/components/dp/CloudAutoSync";
 import { CloudRestore } from "@/components/dp/CloudRestore";
+import { CloudEvidenceSync } from "@/components/dp/CloudEvidenceSync";
 
 export function CloudAccount() {
   const [user, setUser] = useState<User | null>(null);
@@ -89,6 +90,7 @@ export function CloudAccount() {
           <CloudBackup userId={user.id} />
           <CloudAutoSync userId={user.id} />
           <CloudRestore userId={user.id} />
+          <CloudEvidenceSync userId={user.id} />
           <Button type="button" variant="secondary" disabled={busy} onClick={signOut}>
             Sair da conta
           </Button>
