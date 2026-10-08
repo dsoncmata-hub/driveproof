@@ -1,4 +1,4 @@
-// Modelos de dados do DriveProof.
+// Modelos de dados do CARVRUM.
 // Tudo é local por padrão. Campos "syncState" existem para uma futura
 // sincronização opcional (fase 2) e para uma futura fase OBD-II.
 

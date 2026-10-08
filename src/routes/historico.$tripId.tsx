@@ -18,13 +18,13 @@ import type { TripManifest } from "@/lib/dp/types";
 export const Route = createFileRoute("/historico/$tripId")({
   head: () => ({
     meta: [
-      { title: "Detalhe da viagem — DriveProof" },
+      { title: "Detalhe da viagem — CARVRUM" },
       {
         name: "description",
         content:
           "Dados completos da viagem: trajeto, velocidades, checklist, evidências e manifesto de integridade.",
       },
-      { property: "og:title", content: "Detalhe da viagem — DriveProof" },
+      { property: "og:title", content: "Detalhe da viagem — CARVRUM" },
       {
         property: "og:description",
         content: "Trajeto, condições de teste, evidências com hash e manifesto de integridade.",
@@ -85,7 +85,12 @@ function TripDetail() {
             <Stat label="Duração" value={fmtDuration(duration)} />
             <Stat label="Distância GPS" value={fmtNum(trip.distanceKm, 2)} unit="km" tone="data" />
             <Stat label="Velocidade média" value={fmtNum(trip.avgSpeedKmh, 1)} unit="km/h" />
-            <Stat label="Velocidade máxima" value={fmtNum(trip.maxSpeedKmh, 1)} unit="km/h" tone="primary" />
+            <Stat
+              label="Velocidade máxima"
+              value={fmtNum(trip.maxSpeedKmh, 1)}
+              unit="km/h"
+              tone="primary"
+            />
           </div>
           <div className="mt-3">
             <Row label="Início" value={fmtDateTime(trip.startedAt)} />
@@ -183,23 +188,38 @@ function TripDetail() {
           </div>
           <div className="mt-3">
             <Notice>
-              O consumo indicado é o número que você leu no painel do veículo. A diferença
-              mostrada é apenas a comparação entre duas medições, sem conclusão sobre causa.
+              O consumo indicado é o número que você leu no painel do veículo. A diferença mostrada
+              é apenas a comparação entre duas medições, sem conclusão sobre causa.
             </Notice>
           </div>
         </Panel>
 
         <Panel title="Condições registradas">
-          <Row label="Pneus (DE / DD / TE / TD)" value={`${c.tirePressurePsi.frontLeft ?? "—"} / ${c.tirePressurePsi.frontRight ?? "—"} / ${c.tirePressurePsi.rearLeft ?? "—"} / ${c.tirePressurePsi.rearRight ?? "—"} PSI`} />
+          <Row
+            label="Pneus (DE / DD / TE / TD)"
+            value={`${c.tirePressurePsi.frontLeft ?? "—"} / ${c.tirePressurePsi.frontRight ?? "—"} / ${c.tirePressurePsi.rearLeft ?? "—"} / ${c.tirePressurePsi.rearRight ?? "—"} PSI`}
+          />
           <Row label="Medição" value={LABELS.tireMeasuredAt[c.tireMeasuredAt]} />
           <Row
             label="Recomendado (diant./tras.)"
             value={`${c.recommendedFrontPsi ?? "—"} / ${c.recommendedRearPsi ?? "—"} PSI`}
           />
-          <Row label="Ocupantes / carga" value={`${c.occupants ?? "—"} / ${c.estimatedLoadKg ?? "—"} kg`} />
-          <Row label="Ar-condicionado" value={c.acOn ? `ligado ${c.acTempC ?? "—"} °C` : "desligado"} />
-          <Row label="Temperatura ambiente" value={c.ambientTempC == null ? "—" : `${c.ambientTempC} °C`} />
-          <Row label="Nível inicial" value={c.initialFuelLevelPct == null ? "—" : `${c.initialFuelLevelPct}%`} />
+          <Row
+            label="Ocupantes / carga"
+            value={`${c.occupants ?? "—"} / ${c.estimatedLoadKg ?? "—"} kg`}
+          />
+          <Row
+            label="Ar-condicionado"
+            value={c.acOn ? `ligado ${c.acTempC ?? "—"} °C` : "desligado"}
+          />
+          <Row
+            label="Temperatura ambiente"
+            value={c.ambientTempC == null ? "—" : `${c.ambientTempC} °C`}
+          />
+          <Row
+            label="Nível inicial"
+            value={c.initialFuelLevelPct == null ? "—" : `${c.initialFuelLevelPct}%`}
+          />
           <Row label="Combustível" value={LABELS.fuelType[c.fuelType]} />
           <Row label="Partida a frio" value={c.coldStart ? "sim" : "não"} />
           <Row label="Modo de condução" value={LABELS.driveMode[c.driveMode]} />
@@ -239,10 +259,9 @@ function TripDetail() {
               <Row label="Hash do manifesto" value={shortHash(manifest.manifestHash)} />
               <div className="mt-3">
                 <Notice>
-                  <ShieldCheck className="mr-1 inline size-3" />
-                  O manifesto lista os hashes SHA-256 das evidências e do trajeto. Ele
-                  demonstra que os registros não mudaram desde a captura neste aparelho; não
-                  é laudo nem prova pericial.
+                  <ShieldCheck className="mr-1 inline size-3" />O manifesto lista os hashes SHA-256
+                  das evidências e do trajeto. Ele demonstra que os registros não mudaram desde a
+                  captura neste aparelho; não é laudo nem prova pericial.
                 </Notice>
               </div>
             </div>

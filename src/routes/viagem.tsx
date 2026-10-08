@@ -10,20 +10,20 @@ import { DrivingWarning, Notice, Panel, Stat, TrackMap } from "@/components/dp/p
 import { Button } from "@/components/ui/button";
 import { defaultChecklist } from "@/lib/dp/defaults";
 import { fmtDuration, fmtNum } from "@/lib/dp/format";
-import { createTrip, deleteTrip, finishTrip, patchTrip, useDb } from "@/lib/dp/store";
+import { createTrip, deleteTrip, finishTrip, patchTrip, readDb, useDb } from "@/lib/dp/store";
 import { useTripEngine } from "@/lib/dp/useTripEngine";
 import type { Checklist } from "@/lib/dp/types";
 
 export const Route = createFileRoute("/viagem")({
   head: () => ({
     meta: [
-      { title: "Viagem em andamento — DriveProof" },
+      { title: "Viagem em andamento — CARVRUM" },
       {
         name: "description",
         content:
           "Cronômetro, distância por GPS, velocidades, trajeto e captura de evidências durante a viagem.",
       },
-      { property: "og:title", content: "Viagem em andamento — DriveProof" },
+      { property: "og:title", content: "Viagem em andamento — CARVRUM" },
       {
         property: "og:description",
         content: "Registro de viagem com GPS, checklist de teste controlado e evidências com hash.",
@@ -50,6 +50,8 @@ function ViagemPage() {
   const [checklist, setChecklist] = useState<Checklist>(() => defaultChecklist(db.vehicle));
   const [odometerStart, setOdometerStart] = useState<string>("");
   const [tick, setTick] = useState(0);
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => setInteractive(true), []);
 
   useEffect(() => {
     const i = window.setInterval(() => setTick((t) => t + 1), 1000);
@@ -69,6 +71,13 @@ function ViagemPage() {
   const elapsed = activeTrip ? (Date.now() - activeTrip.startedAt) / 1000 : 0;
 
   function handleStart() {
+    if (
+      odometerStart !== "" &&
+      (!Number.isFinite(Number(odometerStart)) || Number(odometerStart) < 0)
+    ) {
+      toast.error("Informe um hodômetro inicial válido.");
+      return;
+    }
     const trip = createTrip({
       checklist,
       odometerStart: odometerStart === "" ? null : Number(odometerStart),
@@ -80,6 +89,8 @@ function ViagemPage() {
 
   function handleFinish() {
     if (!activeTrip) return;
+    engine.flush();
+    const latestTrip = readDb().trips.find((t) => t.id === activeTrip.id)!;
     // A GPS-only trip can finish without odometer readings, but only if
     // actual distance was captured. A trip started with an odometer reading
     // must have a valid final reading to preserve evidentiary consistency.
@@ -89,7 +100,7 @@ function ViagemPage() {
       toast.error("Informe um hodômetro final maior que o inicial antes de encerrar.");
       return;
     }
-    if (start == null && !(activeTrip.distanceKm > 0)) {
+    if (start == null && !(latestTrip.distanceKm > 0)) {
       toast.error("Sem distância GPS, informe o hodômetro inicial e final para encerrar.");
       return;
     }
@@ -103,18 +114,22 @@ function ViagemPage() {
 
   function handleDiscardEmptyTrip() {
     if (!activeTrip) return;
+    engine.flush();
+    const latestTrip = readDb().trips.find((t) => t.id === activeTrip.id)!;
     const hasEvidence = db.evidences.some((item) => item.tripId === activeTrip.id);
     const hasFueling = db.fuelings.some((item) => item.tripId === activeTrip.id);
     const hasMeasurements =
-      activeTrip.points.length > 0 ||
-      activeTrip.distanceKm > 0 ||
-      hasEvidence ||
-      hasFueling;
+      latestTrip.points.length > 0 || latestTrip.distanceKm > 0 || hasEvidence || hasFueling;
     if (hasMeasurements) {
       toast.error("Esta viagem possui medições ou registros associados e não pode ser descartada.");
       return;
     }
-    if (!window.confirm("Descartar esta viagem vazia? Esta ação exclui apenas o rascunho sem registros e não pode ser desfeita.")) return;
+    if (
+      !window.confirm(
+        "Descartar esta viagem vazia? Esta ação exclui apenas o rascunho sem registros e não pode ser desfeita.",
+      )
+    )
+      return;
     engine.stop();
     deleteTrip(activeTrip.id);
     toast.success("Viagem vazia descartada");
@@ -128,6 +143,10 @@ function ViagemPage() {
     >
       <div className="space-y-4">
         <DrivingWarning />
+        <Notice tone="warning">
+          Nesta versão web, mantenha o aplicativo visível para registrar o GPS. Tela bloqueada ou
+          segundo plano podem interromper as medições; trechos sem amostras não são estimados.
+        </Notice>
 
         <Panel title="Sensor de movimento">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
@@ -162,8 +181,8 @@ function ViagemPage() {
           {engine.state.status === "negado" || engine.state.status === "indisponivel" ? (
             <div className="mt-3">
               <Notice tone="warning">
-                Sem acesso ao GPS o app continua registrando checklist, fotos e
-                abastecimentos, mas não calcula distância nem velocidade.
+                Sem acesso ao GPS o app continua registrando checklist, fotos e abastecimentos, mas
+                não calcula distância nem velocidade.
               </Notice>
             </div>
           ) : null}
@@ -210,16 +229,35 @@ function ViagemPage() {
 
         {activeTrip ? (
           <>
-            <Panel title="Medições em tempo real" right={<span className="numeric text-xs">{tick % 2 === 0 ? "●" : "○"}</span>}>
+            <Panel
+              title="Medições em tempo real"
+              right={<span className="numeric text-xs">{tick % 2 === 0 ? "●" : "○"}</span>}
+            >
               <div className="grid grid-cols-2 gap-2">
                 <Stat label="Tempo" value={fmtDuration(elapsed)} />
-                <Stat label="Distância GPS" value={fmtNum(activeTrip.distanceKm, 2)} unit="km" tone="data" />
-                <Stat label="Velocidade atual" value={fmtNum(engine.state.currentKmh, 1)} unit="km/h" />
+                <Stat
+                  label="Distância GPS"
+                  value={fmtNum(activeTrip.distanceKm, 2)}
+                  unit="km"
+                  tone="data"
+                />
+                <Stat
+                  label="Velocidade atual"
+                  value={fmtNum(engine.state.currentKmh, 1)}
+                  unit="km/h"
+                />
                 <Stat label="Média" value={fmtNum(activeTrip.avgSpeedKmh, 1)} unit="km/h" />
-                <Stat label="Máxima" value={fmtNum(activeTrip.maxSpeedKmh, 1)} unit="km/h" tone="primary" />
+                <Stat
+                  label="Máxima"
+                  value={fmtNum(activeTrip.maxSpeedKmh, 1)}
+                  unit="km/h"
+                  tone="primary"
+                />
                 <Stat
                   label="Ganho altimétrico"
-                  value={activeTrip.elevationGainM == null ? "—" : String(activeTrip.elevationGainM)}
+                  value={
+                    activeTrip.elevationGainM == null ? "—" : String(activeTrip.elevationGainM)
+                  }
                   unit="m"
                   tone="muted"
                 />
@@ -247,6 +285,7 @@ function ViagemPage() {
                 <input
                   type="number"
                   inputMode="decimal"
+                  disabled={!interactive}
                   min={activeTrip.odometerStart ?? 0}
                   value={activeTrip.odometerEnd ?? ""}
                   onChange={(e) =>
@@ -262,10 +301,18 @@ function ViagemPage() {
                   ? "Obrigatório: hodômetro final maior que o inicial."
                   : "Sem hodômetro inicial, é necessário ter distância registrada pelo GPS."}
               </p>
-              <Button variant="destructive" className="mt-3 min-h-16 w-full text-base" onClick={handleFinish}>
+              <Button
+                variant="destructive"
+                className="mt-3 min-h-16 w-full text-base"
+                onClick={handleFinish}
+              >
                 <Square className="size-5" /> Encerrar viagem
               </Button>
-              <Button variant="outline" className="mt-3 min-h-12 w-full" onClick={handleDiscardEmptyTrip}>
+              <Button
+                variant="outline"
+                className="mt-3 min-h-12 w-full"
+                onClick={handleDiscardEmptyTrip}
+              >
                 <Trash2 className="size-4" /> Descartar viagem vazia
               </Button>
               <p className="mt-2 text-xs text-muted-foreground">
@@ -282,6 +329,7 @@ function ViagemPage() {
                 <input
                   type="number"
                   inputMode="decimal"
+                  disabled={!interactive}
                   value={odometerStart}
                   onChange={(e) => setOdometerStart(e.target.value)}
                   className="numeric mt-1 min-h-12 w-full rounded-md border border-input bg-secondary/40 px-3 text-base outline-none focus:border-ring"

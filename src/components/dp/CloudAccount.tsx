@@ -46,7 +46,7 @@ export function CloudAccount() {
         options: { emailRedirectTo: window.location.origin },
       });
       if (error) throw error;
-      toast.success("Verifique seu e-mail para acessar a conta DriveProof.");
+      toast.success("Verifique seu e-mail para acessar a conta CARVRUM.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível enviar o acesso.");
     } finally {
@@ -78,21 +78,23 @@ export function CloudAccount() {
   }
 
   return (
-    <Panel title="Minha conta DriveProof">
+    <Panel title="Minha conta CARVRUM">
       {!loaded ? (
         <p className="text-sm text-muted-foreground">Verificando sua sessão…</p>
       ) : user ? (
         <div className="space-y-3">
-          <p className="text-sm">Conectado como <strong>{user.email}</strong></p>
+          <p className="text-sm">
+            Conectado como <strong>{user.email}</strong>
+          </p>
           <p className="text-xs text-muted-foreground">
             Sua conta está conectada. Os registros permanecem neste aparelho; abaixo você pode
             sincronizá-los, recuperar dados e gerenciar as fotos originais na nuvem.
           </p>
-          <CloudBackup userId={user.id} />
-          <CloudAutoSync userId={user.id} />
-          <CloudRestore userId={user.id} />
-          <CloudReconcile userId={user.id} />
-          <CloudEvidenceSync userId={user.id} />
+          <CloudBackup key={"CloudBackup:" + user.id} userId={user.id} />
+          <CloudAutoSync key={"CloudAutoSync:" + user.id} userId={user.id} />
+          <CloudRestore key={"CloudRestore:" + user.id} userId={user.id} />
+          <CloudReconcile key={"CloudReconcile:" + user.id} userId={user.id} />
+          <CloudEvidenceSync key={"CloudEvidenceSync:" + user.id} userId={user.id} />
           <Button type="button" variant="secondary" disabled={busy} onClick={signOut}>
             Sair da conta
           </Button>
@@ -100,10 +102,16 @@ export function CloudAccount() {
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Acesse com sua conta Google (Gmail) ou receba um link por e-mail.
-            Seus registros locais não serão apagados nem enviados automaticamente.
+            Acesse com sua conta Google (Gmail) ou receba um link por e-mail. Seus registros locais
+            não serão apagados nem enviados automaticamente.
           </p>
-          <Button type="button" variant="secondary" disabled={busy} onClick={signInWithGoogle} className="min-h-14 w-full">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy}
+            onClick={signInWithGoogle}
+            className="min-h-14 w-full"
+          >
             Continuar com Google (Gmail)
           </Button>
           <p className="text-center text-xs text-muted-foreground">ou acesse por e-mail</p>

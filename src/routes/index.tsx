@@ -12,13 +12,13 @@ import { setVehicle, useDb } from "@/lib/dp/store";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "DriveProof — registro técnico de viagens e consumo" },
+      { title: "CARVRUM — registro técnico de viagens e consumo" },
       {
         name: "description",
         content:
           "Registre viagens, evidências com hash SHA-256, abastecimentos e variáveis que afetam o consumo de combustível, com rastreabilidade técnica.",
       },
-      { property: "og:title", content: "DriveProof — registro técnico de viagens e consumo" },
+      { property: "og:title", content: "CARVRUM — registro técnico de viagens e consumo" },
       {
         property: "og:description",
         content:
@@ -40,8 +40,8 @@ function Home() {
       <div className="space-y-4">
         <CloudAccount />
         <Notice tone="warning">
-          O DriveProof registra evidências e condições de teste. Ele não faz diagnóstico
-          automotivo nem produz prova pericial.
+          O CARVRUM registra evidências e condições de teste. Ele não faz diagnóstico automotivo nem
+          produz prova pericial.
         </Notice>
 
         {activeTrip ? (
@@ -49,7 +49,10 @@ function Home() {
             <p className="text-sm text-muted-foreground">
               {activeTrip.label} · {fmtNum(activeTrip.distanceKm, 2, " km")} registrados
             </p>
-            <Button className="mt-3 min-h-14 w-full text-base" onClick={() => navigate({ to: "/viagem" })}>
+            <Button
+              className="mt-3 min-h-14 w-full text-base"
+              onClick={() => navigate({ to: "/viagem" })}
+            >
               <Car className="size-5" /> Retomar viagem
             </Button>
           </Panel>
@@ -141,8 +144,8 @@ function Home() {
             </label>
           </div>
           <Notice>
-            Esses valores vêm da etiqueta/manual do seu veículo e são informados por você. O
-            app apenas compara as medições com o que você cadastrou.
+            Esses valores vêm da etiqueta/manual do seu veículo e são informados por você. O app
+            apenas compara as medições com o que você cadastrou.
           </Notice>
         </Panel>
 
@@ -158,16 +161,15 @@ function Home() {
             <Database className="size-5" /> Carregar viagens e abastecimentos de exemplo
           </Button>
           <p className="mt-2 text-xs text-muted-foreground">
-            Cria 3 viagens e 4 abastecimentos fictícios para você testar comparação,
-            relatórios e exportação.
+            Cria 3 viagens e 4 abastecimentos fictícios para você testar comparação, relatórios e
+            exportação.
           </p>
         </Panel>
 
         <Notice>
           Limitações de PWA no iPhone: o GPS pausa quando o app sai da tela ou o telefone é
-          bloqueado, e a câmera do navegador tem menos controle que a nativa. Registro
-          contínuo em segundo plano exigiria um app nativo iOS. Todos os dados ficam neste
-          aparelho.
+          bloqueado, e a câmera do navegador tem menos controle que a nativa. Registro contínuo em
+          segundo plano exigiria um app nativo iOS. Todos os dados ficam neste aparelho.
         </Notice>
       </div>
     </AppShell>

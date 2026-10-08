@@ -17,13 +17,13 @@ import type { FuelType } from "@/lib/dp/types";
 export const Route = createFileRoute("/abastecimentos")({
   head: () => ({
     meta: [
-      { title: "Abastecimentos — DriveProof" },
+      { title: "Abastecimentos — CARVRUM" },
       {
         name: "description",
         content:
           "Registre litros, preço, hodômetro e fotos da bomba. Consumo bomba-a-bomba somente entre tanques cheios.",
       },
-      { property: "og:title", content: "Abastecimentos — DriveProof" },
+      { property: "og:title", content: "Abastecimentos — CARVRUM" },
       {
         property: "og:description",
         content: "Controle de abastecimentos com cálculo de km/L entre tanques cheios.",
@@ -55,7 +55,8 @@ function Abastecimentos() {
   function save() {
     const l = liters === "" ? null : Number(liters);
     const p = price === "" ? null : Number(price);
-    const t = total === "" ? (l != null && p != null ? Number((l * p).toFixed(2)) : null) : Number(total);
+    const t =
+      total === "" ? (l != null && p != null ? Number((l * p).toFixed(2)) : null) : Number(total);
     const odo = odometer === "" ? null : Number(odometer);
     if (odo == null || !Number.isFinite(odo) || odo < 0) {
       toast.error("Informe um hodômetro válido para registrar o abastecimento.");
@@ -65,8 +66,10 @@ function Abastecimentos() {
       toast.error("Informe a quantidade de litros maior que zero.");
       return;
     }
-    if ((p != null && (!Number.isFinite(p) || p <= 0)) ||
-        (t != null && (!Number.isFinite(t) || t <= 0))) {
+    if (
+      (p != null && (!Number.isFinite(p) || p <= 0)) ||
+      (t != null && (!Number.isFinite(t) || t <= 0))
+    ) {
       toast.error("Preço e valor total, quando informados, devem ser positivos.");
       return;
     }
@@ -94,7 +97,9 @@ function Abastecimentos() {
     setNote("");
     setOpen(false);
     toast.success("Abastecimento registrado", {
-      description: fullTank ? "Marcado como tanque cheio." : "Abastecimento parcial registrado; seus litros integram o ciclo até o próximo tanque cheio.",
+      description: fullTank
+        ? "Marcado como tanque cheio."
+        : "Abastecimento parcial registrado; seus litros integram o ciclo até o próximo tanque cheio.",
     });
   }
 
@@ -154,7 +159,9 @@ function Abastecimentos() {
                       type="button"
                       onClick={() => setFullTank(v)}
                       className={`min-h-10 rounded px-3 text-sm font-semibold ${
-                        fullTank === v ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground"
+                        fullTank === v
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-card text-muted-foreground"
                       }`}
                     >
                       {v ? "Sim" : "Não"}

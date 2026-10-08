@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { FileCheck2, MapPin } from "lucide-react";
-import { getBlobUrl } from "@/lib/dp/blobs";
+import { getBlobUrl, subscribeBlobs } from "@/lib/dp/blobs";
 import { LABELS } from "@/lib/dp/defaults";
 import { fmtCoord, fmtDateTime, shortHash } from "@/lib/dp/format";
 import type { Evidence } from "@/lib/dp/types";
@@ -9,15 +9,24 @@ function EvidenceThumb({ id }: { id: string }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    void getBlobUrl(id).then((u) => alive && setUrl(u));
+    const refresh = () => {
+      void getBlobUrl(id)
+        .then((u) => alive && setUrl(u))
+        .catch(() => alive && setUrl(null));
+    };
+    refresh();
+    const unsubscribe = subscribeBlobs((changedId) => {
+      if (changedId === id) refresh();
+    });
     return () => {
       alive = false;
+      unsubscribe();
     };
   }, [id]);
   if (!url) {
     return (
       <div className="grid size-16 shrink-0 place-items-center rounded-md border border-dashed border-border text-[10px] text-muted-foreground">
-        demo
+        sem original
       </div>
     );
   }

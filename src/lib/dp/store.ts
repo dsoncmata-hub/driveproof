@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import type { Evidence, Fueling, Station, Trip, Vehicle } from "./types";
 import { defaultChecklist } from "./defaults";
 
-export const APP_VERSION = "0.1.0-mvp";
+export const APP_VERSION = "0.2.0-mvp";
 const KEY = "driveproof:v1";
 
 export type DbShape = {
@@ -48,23 +48,30 @@ export function readDb(): DbShape {
   if (!isBrowser()) return emptyDb();
   try {
     const raw = window.localStorage.getItem(KEY);
-    cache = raw ? ({ ...emptyDb(), ...(JSON.parse(raw) as DbShape) }) : emptyDb();
+    cache = raw ? { ...emptyDb(), ...(JSON.parse(raw) as DbShape) } : emptyDb();
   } catch {
-    cache = emptyDb();
+    throw Error(
+      "Não foi possível ler os registros locais. Os dados armazenados foram preservados; não limpe o navegador.",
+    );
   }
   return cache;
 }
 
 export function writeDb(next: DbShape) {
-  cache = next;
   if (isBrowser()) {
-    try {
-      window.localStorage.setItem(KEY, JSON.stringify(next));
-    } catch {
-      /* cota excedida: mantém em memória */
-    }
+    window.localStorage.setItem(KEY, JSON.stringify(next));
   }
+  cache = next;
   listeners.forEach((l) => l());
+}
+
+if (isBrowser()) {
+  window.addEventListener("storage", (event) => {
+    if (event.key === KEY || event.key === null) {
+      cache = null;
+      listeners.forEach((listener) => listener());
+    }
+  });
 }
 
 export function update(mutator: (db: DbShape) => DbShape) {
@@ -136,6 +143,7 @@ export function deleteTrip(id: string) {
     ...d,
     trips: d.trips.filter((t) => t.id !== id),
     evidences: d.evidences.filter((e) => e.tripId !== id),
+    fuelings: d.fuelings.map((f) => (f.tripId === id ? { ...f, tripId: null } : f)),
     activeTripId: d.activeTripId === id ? null : d.activeTripId,
   }));
 }

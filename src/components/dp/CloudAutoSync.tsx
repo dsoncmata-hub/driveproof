@@ -1,24 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/dp/supabase";
 import { addFueling, readDb, update, useDb, uid } from "@/lib/dp/store";
+import { syncRecords } from "@/lib/dp/cloudSync";
 
 const MAX_BYTES = 4_000_000;
-function hasRecords() {
-  const d = readDb();
-  return !!(d.trips.length || d.fuelings.length || d.evidences.length || d.stations.length);
-}
 
 export function CloudAutoSync({ userId }: { userId: string }) {
   const db = useDb();
   const enabledKey = "driveproof:auto-sync:" + userId;
-  const revisionKey = "driveproof:auto-sync:revision:" + userId;
   const [enabled, setEnabled] = useState(false);
   const [status, setStatus] = useState("Desativada");
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
-  const lastUploaded = useRef<string | null>(null);
   const inFlight = useRef(false);
   const blocked = useRef(false);
 
@@ -26,11 +20,10 @@ export function CloudAutoSync({ userId }: { userId: string }) {
     setEnabled(localStorage.getItem(enabledKey) === "on");
     setReady(true);
     setStatus(localStorage.getItem(enabledKey) === "on" ? "Aguardando alterações" : "Desativada");
-    lastUploaded.current = null;
     blocked.current = false;
   }, [enabledKey]);
 
-  async function validateAndUpload() {
+  const validateAndUpload = useCallback(async () => {
     if (inFlight.current || blocked.current) return;
     const snapshot = readDb();
     if (snapshot.activeTripId) {
@@ -43,54 +36,44 @@ export function CloudAutoSync({ userId }: { userId: string }) {
       blocked.current = true;
       return;
     }
-    if (lastUploaded.current === json) return;
     inFlight.current = true;
     setStatus("Sincronizando…");
     try {
-      const { data: account, error: accountError } = await supabase.auth.getUser();
-      if (accountError || account.user?.id !== userId) throw Error("Sessão não confirmada");
-      const { data: remote, error: remoteError } = await supabase
-        .from("cloud_sync_state").select("revision,snapshot").eq("user_id", userId).maybeSingle();
-      if (remoteError) throw remoteError;
-
-      // Never overwrite a cloud copy until this device has an acknowledged revision.
-      const storedRevision = Number(localStorage.getItem(revisionKey) ?? "0");
-      if (remote && (!storedRevision || storedRevision !== Number(remote.revision))) {
-        blocked.current = true;
-        setStatus("Conflito detectado: cópia da nuvem diferente. Envio interrompido para proteger seus dados.");
-        return;
-      }
-
-      // Do not initialize the cloud with an empty device.
-      if (!remote && !hasRecords()) {
-        setStatus("Sem registros para enviar");
-        return;
-      }
-      const { data: revision, error } = await supabase.rpc("cloud_sync_upload", {
-        expected_revision: remote ? storedRevision : 0,
-        new_snapshot: snapshot,
-      });
-      if (error) throw error;
-      if (!revision) {
-        blocked.current = true;
-        setStatus("Conflito de versão. Sincronização interrompida; seus registros locais continuam intactos.");
-        return;
-      }
-      localStorage.setItem(revisionKey, String(revision));
-      lastUploaded.current = json;
-      setStatus("Sincronizado na nuvem");
+      const result = await syncRecords(userId);
+      setStatus(
+        result.conflicts.length
+          ? "Conflitos detectados. Abra Conciliar registros para escolher as versões."
+          : result.status,
+      );
     } catch (e) {
-      setStatus("Sem conexão ou falha de envio: dados preservados neste aparelho");
+      setStatus(e instanceof Error ? e.message : "Falha de conexão. Registros locais preservados.");
     } finally {
       inFlight.current = false;
     }
-  }
+  }, [userId]);
 
   useEffect(() => {
     if (!ready || !enabled || blocked.current) return;
-    const id = window.setTimeout(() => { void validateAndUpload(); }, 2500);
+    const id = window.setTimeout(() => {
+      void validateAndUpload();
+    }, 2500);
     return () => clearTimeout(id);
-  }, [db, enabled, ready, userId]);
+  }, [db, enabled, ready, validateAndUpload]);
+
+  useEffect(() => {
+    if (!ready || !enabled) return;
+    const retry = () => {
+      if (document.visibilityState === "visible") void validateAndUpload();
+    };
+    const timer = window.setInterval(retry, 15_000);
+    window.addEventListener("online", retry);
+    window.addEventListener("focus", retry);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("online", retry);
+      window.removeEventListener("focus", retry);
+    };
+  }, [enabled, ready, validateAndUpload]);
 
   function createTest() {
     if (!enabled) {
@@ -105,7 +88,12 @@ export function CloudAutoSync({ userId }: { userId: string }) {
       toast.error("Já existe um registro de teste neste aparelho.");
       return;
     }
-    if (!window.confirm("Criar um abastecimento fictício sem litros, preço ou quilometragem para testar o envio à nuvem? Ele ficará identificado como DEMONSTRAÇÃO.")) return;
+    if (
+      !window.confirm(
+        "Criar um abastecimento fictício sem litros, preço ou quilometragem para testar o envio à nuvem? Ele ficará identificado como DEMONSTRAÇÃO.",
+      )
+    )
+      return;
     addFueling({
       id: uid("dp_sync_test"),
       at: Date.now(),
@@ -127,13 +115,28 @@ export function CloudAutoSync({ userId }: { userId: string }) {
   function removeTest() {
     const count = db.fuelings.filter((f) => f.demo && f.id.startsWith("dp_sync_test_")).length;
     if (!count) return;
-    if (!window.confirm("Remover somente " + count + " registro(s) fictício(s) deste teste? Os abastecimentos reais não serão alterados.")) return;
-    update((d) => ({ ...d, fuelings: d.fuelings.filter((f) => !(f.demo && f.id.startsWith("dp_sync_test_"))) }));
+    if (
+      !window.confirm(
+        "Remover somente " +
+          count +
+          " registro(s) fictício(s) deste teste? Os abastecimentos reais não serão alterados.",
+      )
+    )
+      return;
+    update((d) => ({
+      ...d,
+      fuelings: d.fuelings.filter((f) => !(f.demo && f.id.startsWith("dp_sync_test_"))),
+    }));
     toast.success("Teste removido localmente. Aguarde sincronização da alteração.");
   }
 
   function activate() {
-    if (!window.confirm("Ativar cópia automática dos seus dados de viagem e localização na nuvem? Seus registros existentes serão preservados. Conflitos bloqueiam o envio para evitar perdas.")) return;
+    if (
+      !window.confirm(
+        "Ativar cópia automática dos seus dados de viagem e localização na nuvem? Seus registros existentes serão preservados. Conflitos bloqueiam o envio para evitar perdas.",
+      )
+    )
+      return;
     blocked.current = false;
     setEnabled(true);
     localStorage.setItem(enabledKey, "on");
@@ -150,24 +153,37 @@ export function CloudAutoSync({ userId }: { userId: string }) {
     <div className="space-y-2 rounded-md border border-border p-3">
       <p className="text-sm font-semibold">Sincronização automática (experimental)</p>
       <p className="text-xs text-muted-foreground">
-        Após ativar, envia cópias dos registros concluídos quando o aplicativo estiver
-        aberto e conectado. Não faz restauração ou mesclagem automática entre aparelhos.
-        Conflitos interrompem o envio; fotos originais não estão incluídas.
+        Após ativar, envia cópias dos registros concluídos quando o aplicativo estiver aberto e
+        conectado. Alterações independentes são conciliadas; versões incompatíveis aguardam sua
+        escolha em Conciliar registros. Fotos originais são gerenciadas abaixo.
       </p>
-      <p className="text-xs" role="status">{status}</p>
+      <p className="text-xs" role="status">
+        {status}
+      </p>
       {enabled && (
         <div className="space-y-2 rounded-md border border-dashed border-border p-2">
           <p className="text-xs font-semibold">Teste controlado de sincronização</p>
           <p className="text-xs text-muted-foreground">
-            Cria um abastecimento de demonstração sem valores reais. Aguarde a confirmação
-            do envio antes de removê-lo. Não clique em salvar backup manual durante o teste.
+            Cria um abastecimento de demonstração sem valores reais. Aguarde a confirmação do envio
+            antes de removê-lo. Não clique em salvar backup manual durante o teste.
           </p>
-          <Button type="button" variant="outline" className="w-full" onClick={createTest}
-            disabled={busy || db.fuelings.some((f) => f.demo && f.id.startsWith("dp_sync_test_"))}>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={createTest}
+            disabled={busy || db.fuelings.some((f) => f.demo && f.id.startsWith("dp_sync_test_"))}
+          >
             Criar registro fictício de teste
           </Button>
           {db.fuelings.some((f) => f.demo && f.id.startsWith("dp_sync_test_")) && (
-            <Button type="button" variant="outline" className="w-full" onClick={removeTest} disabled={busy}>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={removeTest}
+              disabled={busy}
+            >
               Remover somente o registro de teste
             </Button>
           )}
@@ -175,11 +191,20 @@ export function CloudAutoSync({ userId }: { userId: string }) {
       )}
       {enabled ? (
         <div className="flex gap-2">
-          <Button type="button" variant="outline" className="flex-1" onClick={deactivate}>Desativar</Button>
-          <Button type="button" className="flex-1" disabled={busy} onClick={() => {
-            setBusy(true);
-            void validateAndUpload().finally(() => setBusy(false));
-          }}>Tentar enviar</Button>
+          <Button type="button" variant="outline" className="flex-1" onClick={deactivate}>
+            Desativar
+          </Button>
+          <Button
+            type="button"
+            className="flex-1"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              void validateAndUpload().finally(() => setBusy(false));
+            }}
+          >
+            Tentar enviar
+          </Button>
         </div>
       ) : (
         <Button type="button" variant="outline" className="min-h-12 w-full" onClick={activate}>
