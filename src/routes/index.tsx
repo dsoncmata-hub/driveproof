@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BookOpen, Car, Database, Fuel, History, Play, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/dp/AppShell";
+import { CloudAccount } from "@/components/dp/CloudAccount";
 import { Notice, Panel, Stat } from "@/components/dp/primitives";
 import { Button } from "@/components/ui/button";
 import { seedDemoData } from "@/lib/dp/demo";
@@ -37,6 +38,7 @@ function Home() {
   return (
     <AppShell title="Início" subtitle={db.vehicle.name}>
       <div className="space-y-4">
+        <CloudAccount />
         <Notice tone="warning">
           O DriveProof registra evidências e condições de teste. Ele não faz diagnóstico
           automotivo nem produz prova pericial.
