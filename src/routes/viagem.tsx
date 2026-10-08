@@ -80,6 +80,19 @@ function ViagemPage() {
 
   function handleFinish() {
     if (!activeTrip) return;
+    // A GPS-only trip can finish without odometer readings, but only if
+    // actual distance was captured. A trip started with an odometer reading
+    // must have a valid final reading to preserve evidentiary consistency.
+    const start = activeTrip.odometerStart;
+    const end = activeTrip.odometerEnd;
+    if (start != null && (!Number.isFinite(end) || end == null || end <= start)) {
+      toast.error("Informe um hodômetro final maior que o inicial antes de encerrar.");
+      return;
+    }
+    if (start == null && !(activeTrip.distanceKm > 0)) {
+      toast.error("Sem distância GPS, informe o hodômetro inicial e final para encerrar.");
+      return;
+    }
     engine.flush();
     engine.stop();
     finishTrip(activeTrip.id);
@@ -214,6 +227,7 @@ function ViagemPage() {
                 <input
                   type="number"
                   inputMode="decimal"
+                  min={activeTrip.odometerStart ?? 0}
                   value={activeTrip.odometerEnd ?? ""}
                   onChange={(e) =>
                     patchTrip(activeTrip.id, {
@@ -223,6 +237,11 @@ function ViagemPage() {
                   className="numeric mt-1 min-h-12 w-full rounded-md border border-input bg-secondary/40 px-3 text-base outline-none focus:border-ring"
                 />
               </label>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {activeTrip.odometerStart != null
+                  ? "Obrigatório: hodômetro final maior que o inicial."
+                  : "Sem hodômetro inicial, é necessário ter distância registrada pelo GPS."}
+              </p>
               <Button variant="destructive" className="mt-3 min-h-16 w-full text-base" onClick={handleFinish}>
                 <Square className="size-5" /> Encerrar viagem
               </Button>
