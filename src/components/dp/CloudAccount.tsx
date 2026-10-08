@@ -5,6 +5,7 @@ import { supabase } from "@/lib/dp/supabase";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/dp/primitives";
 import { CloudBackup } from "@/components/dp/CloudBackup";
+import { CloudAutoSync } from "@/components/dp/CloudAutoSync";
 
 export function CloudAccount() {
   const [user, setUser] = useState<User | null>(null);
@@ -85,6 +86,7 @@ export function CloudAccount() {
             viagens e abastecimentos continuam salvos somente neste aparelho.
           </p>
           <CloudBackup userId={user.id} />
+          <CloudAutoSync userId={user.id} />
           <Button type="button" variant="secondary" disabled={busy} onClick={signOut}>
             Sair da conta
           </Button>
