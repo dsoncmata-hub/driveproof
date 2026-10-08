@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { EvidenceCapture } from "@/components/dp/EvidenceCapture";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/dp/supabase";
 import { getBlob, putBlob } from "@/lib/dp/blobs";
@@ -108,7 +109,7 @@ export function CloudEvidenceSync({ userId }: { userId: string }) {
         antes do envio e após o download. Somente JPEG, PNG, WebP ou PDF até 20 MB.
         Evidências apenas de demonstração podem não possuir arquivo original. Este botão\n        envia fotos já anexadas às evidências; para adicionar uma foto nova, abra\n        uma viagem ou abastecimento e use a captura de evidência.
       </p>
-      <p className="text-xs" role="status">{status}</p>
+      <div className="space-y-2 rounded-md border border-dashed border-border p-2">\n        <p className="text-xs font-semibold">Cadastrar fotografia de teste (sem viagem vinculada)</p>\n        <p className="text-xs text-muted-foreground">Escolha a categoria e use a câmera ou selecione um arquivo. Primeiro a foto será salva neste aparelho; depois clique em Enviar fotos originais para a nuvem.</p>\n        <EvidenceCapture defaultCategory="outro" />\n      </div>\n      <p className="text-xs" role="status">{status}</p>
       <Button type="button" className="min-h-12 w-full" disabled={busy} onClick={() => void upload()}>
         {busy ? "Processando…" : "Enviar fotos originais para a nuvem"}
       </Button>
