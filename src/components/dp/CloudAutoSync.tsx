@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/dp/supabase";
-import { readDb, useDb } from "@/lib/dp/store";
+import { addFueling, readDb, update, useDb, uid } from "@/lib/dp/store";
 
 const MAX_BYTES = 4_000_000;
 function hasRecords() {
@@ -92,6 +92,46 @@ export function CloudAutoSync({ userId }: { userId: string }) {
     return () => clearTimeout(id);
   }, [db, enabled, ready, userId]);
 
+  function createTest() {
+    if (!enabled) {
+      toast.error("Ative a sincronização antes do teste.");
+      return;
+    }
+    if (db.activeTripId) {
+      toast.error("Finalize a viagem em andamento antes do teste.");
+      return;
+    }
+    if (db.fuelings.some((f) => f.id.startsWith("dp_sync_test_"))) {
+      toast.error("Já existe um registro de teste neste aparelho.");
+      return;
+    }
+    if (!window.confirm("Criar um abastecimento fictício sem litros, preço ou quilometragem para testar o envio à nuvem? Ele ficará identificado como DEMONSTRAÇÃO.")) return;
+    addFueling({
+      id: uid("dp_sync_test"),
+      at: Date.now(),
+      odometer: null,
+      liters: null,
+      pricePerLiter: null,
+      totalValue: null,
+      station: "TESTE DE SINCRONIZAÇÃO — NÃO É ABASTECIMENTO REAL",
+      fullTank: false,
+      fuelType: "nao_informado",
+      tripId: null,
+      note: "DEMONSTRAÇÃO: registro criado exclusivamente para teste de sincronização automática.",
+      demo: true,
+      syncState: "local",
+    });
+    toast.success("Registro fictício criado. Aguarde o status 'Sincronizado na nuvem'.");
+  }
+
+  function removeTest() {
+    const count = db.fuelings.filter((f) => f.demo && f.id.startsWith("dp_sync_test_")).length;
+    if (!count) return;
+    if (!window.confirm("Remover somente " + count + " registro(s) fictício(s) deste teste? Os abastecimentos reais não serão alterados.")) return;
+    update((d) => ({ ...d, fuelings: d.fuelings.filter((f) => !(f.demo && f.id.startsWith("dp_sync_test_"))) }));
+    toast.success("Teste removido localmente. Aguarde sincronização da alteração.");
+  }
+
   function activate() {
     if (!window.confirm("Ativar cópia automática dos seus dados de viagem e localização na nuvem? Seus registros existentes serão preservados. Conflitos bloqueiam o envio para evitar perdas.")) return;
     blocked.current = false;
@@ -115,6 +155,24 @@ export function CloudAutoSync({ userId }: { userId: string }) {
         Conflitos interrompem o envio; fotos originais não estão incluídas.
       </p>
       <p className="text-xs" role="status">{status}</p>
+      {enabled && (
+        <div className="space-y-2 rounded-md border border-dashed border-border p-2">
+          <p className="text-xs font-semibold">Teste controlado de sincronização</p>
+          <p className="text-xs text-muted-foreground">
+            Cria um abastecimento de demonstração sem valores reais. Aguarde a confirmação
+            do envio antes de removê-lo. Não clique em salvar backup manual durante o teste.
+          </p>
+          <Button type="button" variant="outline" className="w-full" onClick={createTest}
+            disabled={busy || db.fuelings.some((f) => f.demo && f.id.startsWith("dp_sync_test_"))}>
+            Criar registro fictício de teste
+          </Button>
+          {db.fuelings.some((f) => f.demo && f.id.startsWith("dp_sync_test_")) && (
+            <Button type="button" variant="outline" className="w-full" onClick={removeTest} disabled={busy}>
+              Remover somente o registro de teste
+            </Button>
+          )}
+        </div>
+      )}
       {enabled ? (
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="flex-1" onClick={deactivate}>Desativar</Button>
