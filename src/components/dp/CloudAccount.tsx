@@ -49,6 +49,21 @@ export function CloudAccount() {
     }
   }
 
+  async function signInWithGoogle() {
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) throw error;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível conectar com o Google.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function signOut() {
     setBusy(true);
     const { error } = await supabase.auth.signOut();
@@ -75,9 +90,13 @@ export function CloudAccount() {
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Entre por e-mail para ativar sua identidade na nuvem. Seus registros locais
-            não serão apagados nem enviados automaticamente.
+            Acesse com sua conta Google (Gmail) ou receba um link por e-mail.
+            Seus registros locais não serão apagados nem enviados automaticamente.
           </p>
+          <Button type="button" variant="secondary" disabled={busy} onClick={signInWithGoogle} className="min-h-14 w-full">
+            Continuar com Google (Gmail)
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">ou acesse por e-mail</p>
           <label className="block">
             <span className="label-tec">E-mail</span>
             <input
