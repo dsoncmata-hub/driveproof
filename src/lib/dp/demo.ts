@@ -104,7 +104,7 @@ function demoEvidence(
   };
 }
 
-export function seedDemoData(force = false) {
+export async function seedDemoData(force = false) {
   const current = readDb();
   if (current.demoSeeded && !force) return;
   const now = Date.now();
@@ -200,9 +200,51 @@ export function seedDemoData(force = false) {
   // Abastecimentos FICTÍCIOS (demonstração), coerentes com um Tiggo 7 Sport 1.5 TCI Flex.
   // Casos: posto único sucessivo (A gasolina), mistura de postos (A→B com parcial),
   // troca de combustível (etanol parcial em ciclo de gasolina) e posto com amostra insuficiente.
-  const stA = { id: "st_demo_a", name: "Posto Fictício Alfa (demo)", address: "Av. Exemplo, 100", city: "São Paulo/SP", brand: "Bandeira Demo 1", cnpj: "", localId: "ALFA", favorite: true, lat: -23.561, lon: -46.656, source: "manual" as const, createdAt: now - 80 * DAY, demo: true };
-  const stB = { id: "st_demo_b", name: "Posto Fictício Beta (demo)", address: "Rua Modelo, 250", city: "São Paulo/SP", brand: "Bandeira Demo 2", cnpj: "", localId: "BETA", favorite: false, lat: -23.57, lon: -46.64, source: "manual" as const, createdAt: now - 80 * DAY, demo: true };
-  const stC = { id: "st_demo_c", name: "Posto Fictício Gama (demo)", address: "Estrada Teste, km 12", city: "Jundiaí/SP", brand: "", cnpj: "", localId: "GAMA", favorite: false, lat: -23.18, lon: -46.88, source: "manual" as const, createdAt: now - 80 * DAY, demo: true };
+  const stA = {
+    id: "st_demo_a",
+    name: "Posto Fictício Alfa (demo)",
+    address: "Av. Exemplo, 100",
+    city: "São Paulo/SP",
+    brand: "Bandeira Demo 1",
+    cnpj: "",
+    localId: "ALFA",
+    favorite: true,
+    lat: -23.561,
+    lon: -46.656,
+    source: "manual" as const,
+    createdAt: now - 80 * DAY,
+    demo: true,
+  };
+  const stB = {
+    id: "st_demo_b",
+    name: "Posto Fictício Beta (demo)",
+    address: "Rua Modelo, 250",
+    city: "São Paulo/SP",
+    brand: "Bandeira Demo 2",
+    cnpj: "",
+    localId: "BETA",
+    favorite: false,
+    lat: -23.57,
+    lon: -46.64,
+    source: "manual" as const,
+    createdAt: now - 80 * DAY,
+    demo: true,
+  };
+  const stC = {
+    id: "st_demo_c",
+    name: "Posto Fictício Gama (demo)",
+    address: "Estrada Teste, km 12",
+    city: "Jundiaí/SP",
+    brand: "",
+    cnpj: "",
+    localId: "GAMA",
+    favorite: false,
+    lat: -23.18,
+    lon: -46.88,
+    source: "manual" as const,
+    createdAt: now - 80 * DAY,
+    demo: true,
+  };
   type Spec = [string, "gasolina" | "etanol", boolean, number, number, number];
   // [posto, combustível, cheio, km desde o anterior, km/L do trecho, preço/L]
   const specs: Spec[] = [
@@ -247,10 +289,42 @@ export function seedDemoData(force = false) {
   const f2 = demoFuelings[1]!;
 
   const evidences: Evidence[] = [
-    demoEvidence(t1.id, null, "painel", t1.startedAt + 1000, t1.points[0]!.lat, t1.points[0]!.lon, "painel1"),
-    demoEvidence(t1.id, null, "pneus", t1.startedAt - 60_000, t1.points[0]!.lat, t1.points[0]!.lon, "pneus1"),
-    demoEvidence(t2.id, null, "painel", t2.startedAt + 1000, t2.points[0]!.lat, t2.points[0]!.lon, "painel2"),
-    demoEvidence(t3.id, null, "evento", t3.startedAt + 600_000, t3.points[10]!.lat, t3.points[10]!.lon, "evento3"),
+    demoEvidence(
+      t1.id,
+      null,
+      "painel",
+      t1.startedAt + 1000,
+      t1.points[0]!.lat,
+      t1.points[0]!.lon,
+      "painel1",
+    ),
+    demoEvidence(
+      t1.id,
+      null,
+      "pneus",
+      t1.startedAt - 60_000,
+      t1.points[0]!.lat,
+      t1.points[0]!.lon,
+      "pneus1",
+    ),
+    demoEvidence(
+      t2.id,
+      null,
+      "painel",
+      t2.startedAt + 1000,
+      t2.points[0]!.lat,
+      t2.points[0]!.lon,
+      "painel2",
+    ),
+    demoEvidence(
+      t3.id,
+      null,
+      "evento",
+      t3.startedAt + 600_000,
+      t3.points[10]!.lat,
+      t3.points[10]!.lon,
+      "evento3",
+    ),
     demoEvidence(null, f2.id, "bomba", f2.at, -23.55, -46.64, "bomba2"),
   ];
 
@@ -271,5 +345,5 @@ export function seedDemoData(force = false) {
     demoSeeded: true,
     activeTripId: current.activeTripId,
   };
-  writeDb(next);
+  await writeDb(next);
 }

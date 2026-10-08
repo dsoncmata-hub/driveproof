@@ -1,15 +1,43 @@
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
+import { localScope } from "./accountScope";
+import { toast } from "sonner";
 import type { DbShape } from "./store";
 import { tankToTankConsumption, tripPhysicalKmPerL, deviation } from "./analysis";
 import { fmtDateTime } from "./format";
 
+export async function downloadBlob(name: string, blob: Blob) {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const safeName = name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(Error("Não foi possível exportar o arquivo."));
+        reader.onload = () => resolve(String(reader.result).split(",")[1]!);
+        reader.readAsDataURL(blob);
+      });
+      const written = await Filesystem.writeFile({
+        path: "exports/" + localScope() + "/" + safeName,
+        data,
+        directory: Directory.Cache,
+        recursive: true,
+      });
+      await Share.share({ title: "Exportar CARVRUM", files: [written.uri] });
+      return;
+    }
+    const url = URL.createObjectURL(blob),
+      a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : "Não foi possível exportar.");
+  }
+}
 export function download(name: string, content: string, mime: string) {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  return downloadBlob(name, new Blob([content], { type: mime }));
 }
 
 function csvEscape(v: unknown): string {
@@ -194,4 +222,12 @@ export function exportEvidenceManifestCsv(db: DbShape, tripId?: string) {
  */
 export function printToPdf() {
   if (typeof window !== "undefined") window.print();
+}
+export async function deleteNativeExports(scope: string) {
+  if (Capacitor.isNativePlatform())
+    await Filesystem.rmdir({
+      directory: Directory.Cache,
+      path: "exports/" + scope,
+      recursive: true,
+    }).catch(() => {});
 }

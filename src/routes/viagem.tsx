@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Play, Radar, Square, Satellite, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/dp/AppShell";
+import { PrivacyControl } from "@/components/dp/PrivacyControl";
 import { ChecklistForm } from "@/components/dp/ChecklistForm";
 import { EvidenceCapture } from "@/components/dp/EvidenceCapture";
 import { EvidenceList } from "@/components/dp/EvidenceList";
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { defaultChecklist } from "@/lib/dp/defaults";
 import { fmtDuration, fmtNum } from "@/lib/dp/format";
 import { createTrip, deleteTrip, finishTrip, patchTrip, readDb, useDb } from "@/lib/dp/store";
-import { useTripEngine } from "@/lib/dp/useTripEngine";
+import { useTracker } from "@/components/dp/TripTracker";
 import type { Checklist } from "@/lib/dp/types";
 
 export const Route = createFileRoute("/viagem")({
@@ -46,7 +47,7 @@ function ViagemPage() {
   const db = useDb();
   const navigate = useNavigate();
   const activeTrip = db.trips.find((t) => t.id === db.activeTripId) ?? null;
-  const engine = useTripEngine(activeTrip?.id ?? null);
+  const engine = useTracker();
   const [checklist, setChecklist] = useState<Checklist>(() => defaultChecklist(db.vehicle));
   const [odometerStart, setOdometerStart] = useState<string>("");
   const [tick, setTick] = useState(0);
@@ -70,7 +71,7 @@ function ViagemPage() {
 
   const elapsed = activeTrip ? (Date.now() - activeTrip.startedAt) / 1000 : 0;
 
-  function handleStart() {
+  async function handleStart() {
     if (
       odometerStart !== "" &&
       (!Number.isFinite(Number(odometerStart)) || Number(odometerStart) < 0)
@@ -78,7 +79,7 @@ function ViagemPage() {
       toast.error("Informe um hodômetro inicial válido.");
       return;
     }
-    const trip = createTrip({
+    const trip = await createTrip({
       checklist,
       odometerStart: odometerStart === "" ? null : Number(odometerStart),
     });
@@ -87,9 +88,9 @@ function ViagemPage() {
     toast.success("Viagem iniciada", { description: trip.label });
   }
 
-  function handleFinish() {
+  async function handleFinish() {
     if (!activeTrip) return;
-    engine.flush();
+    await engine.flush();
     const latestTrip = readDb().trips.find((t) => t.id === activeTrip.id)!;
     // A GPS-only trip can finish without odometer readings, but only if
     // actual distance was captured. A trip started with an odometer reading
@@ -104,17 +105,17 @@ function ViagemPage() {
       toast.error("Sem distância GPS, informe o hodômetro inicial e final para encerrar.");
       return;
     }
-    engine.flush();
-    engine.stop();
-    finishTrip(activeTrip.id);
-    patchTrip(activeTrip.id, { endedAt: Date.now() });
+    await engine.flush();
+    await engine.stop();
+    await finishTrip(activeTrip.id);
+    await patchTrip(activeTrip.id, { endedAt: Date.now() });
     toast.success("Viagem encerrada");
     navigate({ to: "/historico/$tripId", params: { tripId: activeTrip.id } });
   }
 
-  function handleDiscardEmptyTrip() {
+  async function handleDiscardEmptyTrip() {
     if (!activeTrip) return;
-    engine.flush();
+    await engine.flush();
     const latestTrip = readDb().trips.find((t) => t.id === activeTrip.id)!;
     const hasEvidence = db.evidences.some((item) => item.tripId === activeTrip.id);
     const hasFueling = db.fuelings.some((item) => item.tripId === activeTrip.id);
@@ -130,8 +131,8 @@ function ViagemPage() {
       )
     )
       return;
-    engine.stop();
-    deleteTrip(activeTrip.id);
+    await engine.stop();
+    await deleteTrip(activeTrip.id);
     toast.success("Viagem vazia descartada");
     navigate({ to: "/" });
   }
@@ -143,6 +144,7 @@ function ViagemPage() {
     >
       <div className="space-y-4">
         <DrivingWarning />
+        <PrivacyControl />
         <Notice tone="warning">
           Nesta versão web, mantenha o aplicativo visível para registrar o GPS. Tela bloqueada ou
           segundo plano podem interromper as medições; trechos sem amostras não são estimados.

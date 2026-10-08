@@ -43,3 +43,15 @@ A migração altera acesso à sincronização e à atualização de originais. N
 - Conflitos que resultariam em evidências órfãs são bloqueados. A revisão guiada de relações pai/filho permanece pendente.
 - Não foram validados iPhone/Android físicos, bateria, GPS em tela bloqueada, OAuth real nesta execução, assinatura de builds ou lojas.
 - O conector Vercel está na equipe Senda Moda. A implantação existente está em `drive-proof`, sem autorização de API nessa equipe. A publicação pode ocorrer pela integração GitHub existente; inspeção de logs/configuração depende do acesso correto.
+
+## Continuação 0.3.0 — armazenamento privado e aplicativos
+
+- 73 testes Vitest passaram: isolamento local por conta, importação sem apagar legado, falha de persistência, blocos GPS, CAS/conflitos, sessão offline, nonce PKCE e lifecycle do rastreador nativo.
+- Dez fluxos Playwright passaram na web. Incluem concorrência em dois contextos isolados, logout/conta A/conta B/retorno à A, abertura offline e reparo de foto que conserva os bytes divergentes.
+- TypeScript, build web, build SPA nativa e lint do núcleo passaram (somente o aviso preexistente de Fast Refresh do botão). `npm audit --omit=dev --audit-level=high`: zero vulnerabilidades.
+- Dez assertions RLS/CAS e seis assertions de exclusão/sessões passaram no Supabase real, com transações revertidas e zero fixtures restantes.
+- Exclusão real HTTP/SDK: uma conta sintética foi criada, autenticada, recebeu snapshot/protocolo 2, foto e backup manual. A Edge Function publicada removeu os dados e a conta; o JWT antigo foi recusado. A fixture foi removida. Nenhuma credencial ou token real foi versionado.
+- Depois das migrations e dos testes: permanece uma conta e um objeto existentes; snapshot revisão 3 e MD5 `6fec0609c433979d227d45381023e85f`. Job ativo `0 */12 * * *`, MD5 do comando `525548b2249cab6b20760ef055668e91`. Função de captura MD5 `cfd7808b221fd2e6852604b310056d8f`; função de status MD5 `560ac463d335728f330e3fe6b5f5d493`. Iguais à linha de base.
+- Advisor: dois avisos permanecem — proteção contra senhas vazadas desativada e RPC de status do backup SECURITY DEFINER. O login de produto usa Google/e-mail; não foi alterada configuração Auth administrativa nem rotina de backups. Tabelas privadas sem políticas são intencionalmente negadas a clientes.
+
+A CI inclui compilação Android (APK debug, AAB release sem assinatura comercial e lint) e iOS para simulador. Consultar o resultado efetivo da execução vinculada à PR antes de considerar esses pacotes validados. Nenhum ensaio em telefone físico, assinatura de distribuição ou publicação nas lojas foi realizado neste ambiente.

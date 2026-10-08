@@ -3,8 +3,11 @@ import { sha256OfBlob } from "./hash";
 import { addEvidence, uid } from "./store";
 import type { Evidence, EvidenceCategory } from "./types";
 import { EVIDENCE_TYPES, MAX_EVIDENCE_SIZE } from "./evidenceCloud";
+import { locationAllowed } from "./privacy";
+import { scopeGeneration } from "./accountScope";
 
 export async function currentPosition(): Promise<GeolocationPosition | null> {
+  if (!locationAllowed()) return null;
   if (typeof navigator === "undefined" || !("geolocation" in navigator)) return null;
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
@@ -29,6 +32,7 @@ export async function registerEvidence(opts: {
   note?: string;
   position?: GeolocationPosition | null;
 }): Promise<Evidence> {
+  const generation = scopeGeneration();
   if (
     !EVIDENCE_TYPES.has(opts.file.type) ||
     opts.file.size <= 0 ||
@@ -38,8 +42,12 @@ export async function registerEvidence(opts: {
   }
   const pos = opts.position ?? (await currentPosition());
   const sha256 = await sha256OfBlob(opts.file);
+  if (generation !== scopeGeneration())
+    throw Error("A conta mudou durante a captura. Nenhuma evidência foi vinculada.");
   const id = uid("ev");
   await putBlob(id, opts.file);
+  if (generation !== scopeGeneration())
+    throw Error("A conta mudou durante a captura. O original permanece no espaço anterior.");
   const evidence: Evidence = {
     id,
     tripId: opts.tripId ?? null,
@@ -57,6 +65,6 @@ export async function registerEvidence(opts: {
     note: opts.note ?? "",
     syncState: "local",
   };
-  addEvidence(evidence);
+  await addEvidence(evidence);
   return evidence;
 }

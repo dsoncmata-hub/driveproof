@@ -12,7 +12,7 @@ const id = z
 const ref = id.nullable();
 const syncState = z.enum(["local", "pending", "synced"]);
 const fuel = z.enum(["gasolina", "etanol", "mistura", "diesel", "gnv", "nao_informado"]);
-const point = z
+export const pointSchema = z
   .object({
     t: nonnegative,
     lat: num.min(-90).max(90),
@@ -72,7 +72,18 @@ export const snapshotSchema = z
           label: z.string(),
           startedAt: nonnegative,
           endedAt: nonnegative.nullable(),
-          points: z.array(point),
+          points: z.array(pointSchema),
+          trackChunks: z
+            .array(
+              z
+                .object({
+                  hash: z.string().regex(/^[a-f0-9]{64}$/),
+                  count: z.number().int().min(1).max(500),
+                })
+                .strict(),
+            )
+            .max(4000)
+            .optional(),
           distanceKm: nonnegative,
           maxSpeedKmh: nonnegative,
           avgSpeedKmh: nonnegative,
@@ -155,6 +166,8 @@ export function parseSnapshot(value: unknown): DbShape {
   const result = snapshotSchema.safeParse(value);
   if (!result.success) throw Error("Formato dos registros inválido. Nenhum dado foi substituído.");
   const db = result.data as DbShape;
+  if (db.trips.some((t) => t.trackChunks && t.points.length))
+    throw Error("Trajeto remoto contém formatos conflitantes.");
   for (const key of ["trips", "fuelings", "evidences", "stations"] as const) {
     if (new Set(db[key].map((x) => x.id)).size !== db[key].length)
       throw Error("IDs duplicados em " + key);

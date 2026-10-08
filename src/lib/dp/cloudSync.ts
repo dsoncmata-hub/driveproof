@@ -2,32 +2,18 @@ import { supabase } from "./supabase";
 import { readDb, writeDb, type DbShape } from "./store";
 import { canonical, parseSnapshot } from "./snapshot";
 import { planMerge, type Choice, type Conflict } from "./reconcile";
+import { localScope } from "./accountScope";
+import { auxiliaryGet, auxiliaryPut } from "./localRecords";
+import { hydrateRemoteSnapshot, prepareRemoteSnapshot } from "./trackCloud";
 
 export const MAX_SNAPSHOT_BYTES = 4_000_000;
-const OWNER_KEY = "driveproof:local-owner";
 export const revisionKey = (userId: string) => "driveproof:auto-sync:revision:" + userId;
 const baseKey = (userId: string) => "driveproof:sync-base:" + userId;
 const hasRecords = (db: DbShape) =>
   !!(db.trips.length || db.fuelings.length || db.evidences.length || db.stations.length);
-
 export function assertLocalOwner(userId: string) {
-  let owner = localStorage.getItem(OWNER_KEY);
-  if (!owner) {
-    const prior = Object.keys(localStorage)
-      .filter((k) => k.startsWith("driveproof:auto-sync:revision:"))
-      .map((k) => k.slice("driveproof:auto-sync:revision:".length));
-    if (prior.length > 1 || (prior.length === 1 && prior[0] !== userId)) {
-      throw Error(
-        "Os registros deste navegador pertencem a outra conta. Use outro perfil do navegador para esta conta.",
-      );
-    }
-    owner = userId;
-    localStorage.setItem(OWNER_KEY, owner);
-  }
-  if (owner !== userId)
-    throw Error(
-      "Conta diferente da proprietária dos registros locais. Envio e recuperação bloqueados.",
-    );
+  if (localScope() !== userId)
+    throw Error("Conta diferente do espaço local aberto. Operação bloqueada.");
 }
 
 export async function checkCloudIdentity(userId: string) {
@@ -36,18 +22,20 @@ export async function checkCloudIdentity(userId: string) {
   assertLocalOwner(userId);
 }
 
-export function acknowledge(userId: string, revision: number, snapshot: DbShape) {
+export async function acknowledge(userId: string, revision: number, snapshot: DbShape) {
   if (!Number.isSafeInteger(revision) || revision < 1) throw Error("Revisão inválida.");
-  // Base first: an interrupted write must fail closed, never acknowledge the wrong content.
-  localStorage.setItem(baseKey(userId), JSON.stringify({ revision, snapshot }));
+  await auxiliaryPut("sync", userId + ":base", { revision, snapshot });
   localStorage.setItem(revisionKey(userId), String(revision));
 }
 
-export function readBase(userId: string): DbShape | null {
-  const raw = localStorage.getItem(baseKey(userId));
-  if (!raw) return null;
-  const base = JSON.parse(raw);
-  return base.revision === Number(localStorage.getItem(revisionKey(userId)))
+export async function readBase(userId: string): Promise<DbShape | null> {
+  const saved = await auxiliaryGet<{ revision: number; snapshot: DbShape }>(
+    "sync",
+    userId + ":base",
+  );
+  const legacy = localStorage.getItem(baseKey(userId));
+  const base = saved ?? (legacy ? JSON.parse(legacy) : null);
+  return base && base.revision === Number(localStorage.getItem(revisionKey(userId)))
     ? parseSnapshot(base.snapshot)
     : null;
 }
@@ -96,15 +84,16 @@ export async function syncRecords(
     }
     if (!row && !hasRecords(local))
       return { conflicts: [], snapshot: local, revision, status: "Sem registros para enviar" };
-    const remote = row ? parseSnapshot(row.snapshot) : null;
+    const remote = row ? await hydrateRemoteSnapshot(userId, row.snapshot) : null;
     const plan = remote
-      ? planMerge(local, remote, readBase(userId), choices)
+      ? planMerge(local, remote, await readBase(userId), choices)
       : { snapshot: local, conflicts: [] };
     if (plan.conflicts.length)
       return { ...plan, revision, status: "Conflitos aguardam sua escolha" };
-    if (new TextEncoder().encode(JSON.stringify(plan.snapshot)).length > MAX_SNAPSHOT_BYTES) {
+    const transport = await prepareRemoteSnapshot(userId, plan.snapshot);
+    if (new TextEncoder().encode(JSON.stringify(transport)).length > MAX_SNAPSHOT_BYTES) {
       throw Error(
-        "Limite de 4 MB atingido. Nenhum registro foi removido; entre em contato com suporte.",
+        "Limite de metadados atingido. Nenhum registro foi removido; entre em contato com suporte.",
       );
     }
     await checkCloudIdentity(userId);
@@ -113,16 +102,22 @@ export async function syncRecords(
     if (Object.keys(choices).length && remote) {
       // Store both versions BEFORE a conflict resolution can replace the remote copy.
       // If there is no room, abort before the CAS request and preserve both live copies.
-      localStorage.setItem(
-        "driveproof:conflict-review:" + userId + ":" + crypto.randomUUID(),
-        JSON.stringify({ at: Date.now(), local, cloud: remote, choices }),
-      );
+      await auxiliaryPut("reviews", userId + ":" + crypto.randomUUID(), {
+        at: Date.now(),
+        local,
+        cloud: remote,
+        choices,
+      });
     }
     let updatedRevision = revision;
-    if (!remote || canonical(plan.snapshot) !== canonical(remote)) {
-      const { data, error: uploadError } = await supabase.rpc("cloud_sync_upload", {
+    if (
+      !remote ||
+      canonical(plan.snapshot) !== canonical(remote) ||
+      row?.snapshot?.syncProtocol !== 2
+    ) {
+      const { data, error: uploadError } = await supabase.rpc("cloud_sync_upload_v2", {
         expected_revision: revision,
-        new_snapshot: plan.snapshot,
+        new_snapshot: transport,
       });
       if (uploadError) throw uploadError;
       if (!data) throw Error("Outro aparelho alterou a nuvem. Tente sincronizar novamente.");
@@ -137,7 +132,7 @@ export async function syncRecords(
           "Novos registros locais preservados. Sincronize novamente para concluir a conciliação.",
         );
       }
-      acknowledge(userId, updatedRevision, plan.snapshot);
+      await acknowledge(userId, updatedRevision, plan.snapshot);
       return {
         ...plan,
         revision: updatedRevision,
@@ -145,8 +140,8 @@ export async function syncRecords(
       };
     }
     // Persist merged records before acknowledging; quota failures keep the old base.
-    if (canonical(readDb()) !== canonical(plan.snapshot)) writeDb(plan.snapshot);
-    acknowledge(userId, updatedRevision, plan.snapshot);
+    if (canonical(readDb()) !== canonical(plan.snapshot)) await writeDb(plan.snapshot);
+    await acknowledge(userId, updatedRevision, plan.snapshot);
     return {
       ...plan,
       revision: updatedRevision,

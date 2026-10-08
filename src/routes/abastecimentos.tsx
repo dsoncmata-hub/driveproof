@@ -52,7 +52,7 @@ function Abastecimentos() {
   const avg =
     segments.length > 0 ? segments.reduce((a, s) => a + s.kmPerL, 0) / segments.length : null;
 
-  function save() {
+  async function save() {
     const l = liters === "" ? null : Number(liters);
     const p = price === "" ? null : Number(price);
     const t =
@@ -74,7 +74,7 @@ function Abastecimentos() {
       return;
     }
     const id = uid("fuel");
-    addFueling({
+    await addFueling({
       id,
       at: Date.now(),
       odometer: odo,

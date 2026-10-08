@@ -11,9 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AbastecimentosRouteImport } from './routes/abastecimentos'
+import { Route as ExcluirContaRouteImport } from './routes/excluir-conta'
 import { Route as HistoricoRouteImport } from './routes/historico'
 import { Route as MetodologiaRouteImport } from './routes/metodologia'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
+import { Route as TermosRouteImport } from './routes/termos'
 import { Route as ViagemRouteImport } from './routes/viagem'
 import { Route as HistoricoIndexRouteImport } from './routes/historico.index'
 import { Route as HistoricoTripIdRouteImport } from './routes/historico.$tripId'
@@ -28,6 +31,11 @@ const AbastecimentosRoute = AbastecimentosRouteImport.update({
   path: '/abastecimentos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExcluirContaRoute = ExcluirContaRouteImport.update({
+  id: '/excluir-conta',
+  path: '/excluir-conta',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HistoricoRoute = HistoricoRouteImport.update({
   id: '/historico',
   path: '/historico',
@@ -38,9 +46,19 @@ const MetodologiaRoute = MetodologiaRouteImport.update({
   path: '/metodologia',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacidadeRoute = PrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RelatoriosRoute = RelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermosRoute = TermosRouteImport.update({
+  id: '/termos',
+  path: '/termos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ViagemRoute = ViagemRouteImport.update({
@@ -62,9 +80,12 @@ const HistoricoTripIdRoute = HistoricoTripIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/abastecimentos': typeof AbastecimentosRoute
+  '/excluir-conta': typeof ExcluirContaRoute
   '/historico': typeof HistoricoRouteWithChildren
   '/metodologia': typeof MetodologiaRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/relatorios': typeof RelatoriosRoute
+  '/termos': typeof TermosRoute
   '/viagem': typeof ViagemRoute
   '/historico/$tripId': typeof HistoricoTripIdRoute
   '/historico/': typeof HistoricoIndexRoute
@@ -72,8 +93,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/abastecimentos': typeof AbastecimentosRoute
+  '/excluir-conta': typeof ExcluirContaRoute
   '/metodologia': typeof MetodologiaRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/relatorios': typeof RelatoriosRoute
+  '/termos': typeof TermosRoute
   '/viagem': typeof ViagemRoute
   '/historico/$tripId': typeof HistoricoTripIdRoute
   '/historico': typeof HistoricoIndexRoute
@@ -82,9 +106,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/abastecimentos': typeof AbastecimentosRoute
+  '/excluir-conta': typeof ExcluirContaRoute
   '/historico': typeof HistoricoRouteWithChildren
   '/metodologia': typeof MetodologiaRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/relatorios': typeof RelatoriosRoute
+  '/termos': typeof TermosRoute
   '/viagem': typeof ViagemRoute
   '/historico/$tripId': typeof HistoricoTripIdRoute
   '/historico/': typeof HistoricoIndexRoute
@@ -94,9 +121,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/abastecimentos'
+    | '/excluir-conta'
     | '/historico'
     | '/metodologia'
+    | '/privacidade'
     | '/relatorios'
+    | '/termos'
     | '/viagem'
     | '/historico/$tripId'
     | '/historico/'
@@ -104,8 +134,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/abastecimentos'
+    | '/excluir-conta'
     | '/metodologia'
+    | '/privacidade'
     | '/relatorios'
+    | '/termos'
     | '/viagem'
     | '/historico/$tripId'
     | '/historico'
@@ -113,9 +146,12 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/abastecimentos'
+    | '/excluir-conta'
     | '/historico'
     | '/metodologia'
+    | '/privacidade'
     | '/relatorios'
+    | '/termos'
     | '/viagem'
     | '/historico/$tripId'
     | '/historico/'
@@ -124,9 +160,12 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AbastecimentosRoute: typeof AbastecimentosRoute
+  ExcluirContaRoute: typeof ExcluirContaRoute
   HistoricoRoute: typeof HistoricoRouteWithChildren
   MetodologiaRoute: typeof MetodologiaRoute
+  PrivacidadeRoute: typeof PrivacidadeRoute
   RelatoriosRoute: typeof RelatoriosRoute
+  TermosRoute: typeof TermosRoute
   ViagemRoute: typeof ViagemRoute
 }
 
@@ -146,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AbastecimentosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/excluir-conta': {
+      id: '/excluir-conta'
+      path: '/excluir-conta'
+      fullPath: '/excluir-conta'
+      preLoaderRoute: typeof ExcluirContaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/historico': {
       id: '/historico'
       path: '/historico'
@@ -160,11 +206,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MetodologiaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/relatorios': {
       id: '/relatorios'
       path: '/relatorios'
       fullPath: '/relatorios'
       preLoaderRoute: typeof RelatoriosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/termos': {
+      id: '/termos'
+      path: '/termos'
+      fullPath: '/termos'
+      preLoaderRoute: typeof TermosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/viagem': {
@@ -208,9 +268,12 @@ const HistoricoRouteWithChildren = HistoricoRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AbastecimentosRoute: AbastecimentosRoute,
+  ExcluirContaRoute: ExcluirContaRoute,
   HistoricoRoute: HistoricoRouteWithChildren,
   MetodologiaRoute: MetodologiaRoute,
+  PrivacidadeRoute: PrivacidadeRoute,
   RelatoriosRoute: RelatoriosRoute,
+  TermosRoute: TermosRoute,
   ViagemRoute: ViagemRoute,
 }
 export const routeTree = rootRouteImport

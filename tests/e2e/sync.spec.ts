@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { expect, test, type BrowserContext } from "@playwright/test";
 import { emptyDb, type DbShape } from "../../src/lib/dp/store";
+import { storedRecords } from "./storage";
 import type { Fueling } from "../../src/lib/dp/types";
 const accountId = "00000000-0000-4000-8000-000000000001";
 const f = (id: string, note = ""): Fueling => ({
@@ -57,9 +58,16 @@ async function fixture(
       };
       const expires = Math.floor(Date.now() / 1000) + 3600;
       const token =
-        btoa(JSON.stringify({ alg: "HS256", typ: "JWT" })) +
+        btoa(JSON.stringify({ alg: "HS256", typ: "JWT" })).replace(/=+$/, "") +
         "." +
-        btoa(JSON.stringify({ sub: accountId, aud: "authenticated", exp: expires })) +
+        btoa(
+          JSON.stringify({
+            sub: accountId,
+            session_id: "fixture-session-" + accountId,
+            aud: "authenticated",
+            exp: expires,
+          }),
+        ).replace(/=+$/, "") +
         ".fixture";
       localStorage.setItem(
         "sb-pylmernfpgcwxylzcbqi-auth-token",
@@ -79,10 +87,17 @@ async function fixture(
   await context.route("https://pylmernfpgcwxylzcbqi.supabase.co/**", async (route) => {
     const request = route.request(),
       url = new URL(request.url());
-    if (url.pathname === "/auth/v1/user") {
+    if (url.pathname === "/auth/v1/logout") {
+      await route.fulfill({ status: 204 });
+    } else if (url.pathname === "/auth/v1/user") {
+      const authorization = request.headers()["authorization"] ?? "";
+      const payload = authorization.split(".")[1];
+      const fixtureId = payload
+        ? JSON.parse(Buffer.from(payload, "base64").toString()).sub
+        : accountId;
       await route.fulfill({
         json: {
-          id: accountId,
+          id: fixtureId,
           email: "fixture@example.invalid",
           aud: "authenticated",
           role: "authenticated",
@@ -95,7 +110,7 @@ async function fixture(
       await route.fulfill({
         json: [{ ...cloud, user_id: accountId, updated_at: new Date().toISOString() }],
       });
-    } else if (url.pathname === "/rest/v1/rpc/cloud_sync_upload") {
+    } else if (url.pathname === "/rest/v1/rpc/cloud_sync_upload_v2") {
       const body = request.postDataJSON();
       if (body.expected_revision !== cloud.revision) await route.fulfill({ json: null });
       else {
@@ -126,11 +141,7 @@ test("restores metadata on a new device and recovers the original with SHA-256",
   await page.goto("/");
   await expect(page.getByText("Conectado como")).toBeVisible();
   await page.getByRole("button", { name: "Recuperar registros da nuvem", exact: true }).click();
-  await expect
-    .poll(() =>
-      page.evaluate(() => JSON.parse(localStorage.getItem("driveproof:v1")!).evidences.length),
-    )
-    .toBe(1);
+  await expect.poll(() => storedRecords(page, accountId).then((db) => db.evidences.length)).toBe(1);
   await page.getByRole("button", { name: "Recuperar fotos ausentes neste aparelho" }).click();
   await expect(page.getByText(/1 foto\(s\) recuperada\(s\)/)).toBeVisible();
   const recovered = await page.evaluate(async () => {
@@ -140,7 +151,10 @@ test("restores metadata on a new device and recovers the original with SHA-256",
       r.onerror = () => reject(r.error);
     });
     const blob = await new Promise<Blob>((resolve, reject) => {
-      const r = db.transaction("evidence-blobs").objectStore("evidence-blobs").get("photoA");
+      const r = db
+        .transaction("evidence-blobs")
+        .objectStore("evidence-blobs")
+        .get("00000000-0000-4000-8000-000000000001:photoA");
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => reject(r.error);
     });
@@ -151,6 +165,54 @@ test("restores metadata on a new device and recovers the original with SHA-256",
       .join("");
   });
   expect(recovered).toBe(photo.sha256);
+  // A divergent local copy must be preserved before repair, never silently destroyed.
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve) => {
+      const r = indexedDB.open("driveproof", 1);
+      r.onsuccess = () => resolve(r.result);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("evidence-blobs", "readwrite");
+      tx.objectStore("evidence-blobs").put(
+        new Blob(["divergent-local-bytes"], { type: "image/png" }),
+        "00000000-0000-4000-8000-000000000001:photoA",
+      );
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  });
+  await page.getByRole("button", { name: "Conferir e reparar originais inválidos" }).click();
+  await expect(page.getByText(/1 original\(is\) recuperado\(s\)\/reparado\(s\)/)).toBeVisible();
+  const repaired = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve) => {
+      const r = indexedDB.open("driveproof", 1);
+      r.onsuccess = () => resolve(r.result);
+    });
+    const rows = await new Promise<{ key: string; blob: Blob }[]>((resolve) => {
+      const result: { key: string; blob: Blob }[] = [],
+        tx = db.transaction("evidence-blobs"),
+        request = tx.objectStore("evidence-blobs").openCursor();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (cursor) {
+          result.push({ key: String(cursor.key), blob: cursor.value });
+          cursor.continue();
+        }
+      };
+      tx.oncomplete = () => resolve(result);
+    });
+    const original = rows.find((x) => x.key.endsWith(":photoA"))!,
+      preserved = rows.find((x) => x.key.includes(":quarantine:photoA:"))!;
+    return {
+      digest: Array.from(
+        new Uint8Array(await crypto.subtle.digest("SHA-256", await original.blob.arrayBuffer())),
+      )
+        .map((x) => x.toString(16).padStart(2, "0"))
+        .join(""),
+      preserved: await preserved.blob.text(),
+    };
+  });
+  expect(repaired).toEqual({ digest: photo.sha256, preserved: "divergent-local-bytes" });
 });
 
 test("explicitly resolves a content conflict and preserves both reviewed versions", async ({
@@ -167,15 +229,21 @@ test("explicitly resolves a content conflict and preserves both reviewed version
   await page.getByRole("radio", { name: /^Usar da nuvem:/ }).check();
   await page.getByRole("button", { name: "Aplicar versões escolhidas e sincronizar" }).click();
   await expect
-    .poll(() =>
-      page.evaluate(() => JSON.parse(localStorage.getItem("driveproof:v1")!).fuelings[0].note),
-    )
+    .poll(() => storedRecords(page, accountId).then((db) => db.fuelings[0].note))
     .toBe("cloud version");
-  const review = await page.evaluate(() =>
-    Object.keys(localStorage)
-      .filter((k) => k.startsWith("driveproof:conflict-review:"))
-      .map((k) => JSON.parse(localStorage.getItem(k)!)),
-  );
+  const review = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve) => {
+      const r = indexedDB.open("carvrum-records", 1);
+      r.onsuccess = () => resolve(r.result);
+    });
+    return new Promise<any[]>((resolve) => {
+      const r = db.transaction("reviews").objectStore("reviews").getAll();
+      r.onsuccess = () => {
+        resolve(r.result);
+        db.close();
+      };
+    });
+  });
   expect(review).toHaveLength(1);
   expect(review[0].local.fuelings[0].note).toBe("local version");
   expect(review[0].cloud.fuelings[0].note).toBe("cloud version");
@@ -196,9 +264,7 @@ test("does not overwrite a device that already contains records during restore",
   await expect(
     page.getByText(/Recuperação bloqueada: este aparelho já possui registros/),
   ).toBeVisible();
-  expect(
-    await page.evaluate(() => JSON.parse(localStorage.getItem("driveproof:v1")!).fuelings[0].id),
-  ).toBe("localA");
+  expect(await storedRecords(page, accountId).then((db) => db.fuelings[0].id)).toBe("localA");
 });
 
 test("two isolated devices converge after concurrent additions without losing either record", async ({
@@ -260,10 +326,8 @@ test("two isolated devices converge after concurrent additions without losing ei
     for (const page of [a, b])
       await expect
         .poll(() =>
-          page.evaluate(() =>
-            JSON.parse(localStorage.getItem("driveproof:v1")!)
-              .fuelings.map((x: { id: string }) => x.id)
-              .sort(),
+          storedRecords(page, accountId).then((db) =>
+            db.fuelings.map((x: { id: string }) => x.id).sort(),
           ),
         )
         .toEqual(["fromA", "fromB"]);
@@ -272,4 +336,94 @@ test("two isolated devices converge after concurrent additions without losing ei
     await first.close();
     await second.close();
   }
+});
+
+test("logout hides the account and another login opens a separate vault", async ({
+  page,
+  context,
+}) => {
+  await fixture(
+    context,
+    { ...emptyDb(), fuelings: [f("privateA", "Only owner A")] },
+    { revision: 1, snapshot: emptyDb() },
+  );
+  await page.goto("/");
+  await expect(page.getByText("Conectado como")).toBeVisible();
+  await page.getByRole("button", { name: "Sair da conta", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Continuar com Google (Gmail)", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Abastec.", exact: true }).click();
+  await expect(page.getByText("Only owner A", { exact: true })).toHaveCount(0);
+  expect((await storedRecords(page, accountId)).fuelings[0].id).toBe("privateA");
+  const login = async (id: string) => {
+    await page.evaluate(async (id) => {
+      const expires = Math.floor(Date.now() / 1000) + 3600;
+      const token =
+        btoa(JSON.stringify({ alg: "HS256", typ: "JWT" })).replace(/=+$/, "") +
+        "." +
+        btoa(
+          JSON.stringify({
+            sub: id,
+            session_id: "fixture-session-" + id,
+            aud: "authenticated",
+            exp: expires,
+          }),
+        ).replace(/=+$/, "") +
+        ".fixture";
+      localStorage.setItem(
+        "sb-pylmernfpgcwxylzcbqi-auth-token",
+        JSON.stringify({
+          access_token: token,
+          refresh_token: "fixture-only",
+          token_type: "bearer",
+          expires_in: 3600,
+          expires_at: expires,
+          user: {
+            id,
+            email: "fixture@example.invalid",
+            aud: "authenticated",
+            role: "authenticated",
+            app_metadata: {},
+            user_metadata: {},
+            created_at: new Date().toISOString(),
+          },
+        }),
+      );
+    }, id);
+  };
+  await login("00000000-0000-4000-8000-000000000002");
+  await page.goto("/");
+  await expect(page.getByText("Conectado como")).toBeVisible();
+  expect((await storedRecords(page, "00000000-0000-4000-8000-000000000002")).fuelings).toHaveLength(
+    0,
+  );
+  await login(accountId);
+  await page.goto("/abastecimentos");
+  await expect(page.getByText("Only owner A", { exact: true })).toBeVisible();
+});
+
+test("a previously verified account reopens offline without exposing another vault", async ({
+  page,
+  context,
+}) => {
+  await fixture(
+    context,
+    { ...emptyDb(), fuelings: [f("offlineA", "Persisted offline record")] },
+    { revision: 1, snapshot: emptyDb() },
+  );
+  await page.goto("/abastecimentos");
+  await expect(page.getByText("Persisted offline record", { exact: true })).toBeVisible();
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false }),
+  );
+  await context.unroute("https://pylmernfpgcwxylzcbqi.supabase.co/**");
+  let remoteRequests = 0;
+  await context.route("https://pylmernfpgcwxylzcbqi.supabase.co/**", async (route) => {
+    remoteRequests++;
+    await route.abort();
+  });
+  await page.reload();
+  await expect(page.getByText("Persisted offline record", { exact: true })).toBeVisible();
+  expect(remoteRequests).toBe(0);
 });

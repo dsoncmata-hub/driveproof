@@ -36,3 +36,5 @@ supabase/.temp/
 .env.*
 test-results/
 playwright-report/
+
+dist-native/

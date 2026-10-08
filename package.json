@@ -14,13 +14,27 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run test && npm run typecheck && npm run build",
     "lint:core": "eslint src/lib/dp/cloudSync.ts src/lib/dp/reconcile.ts src/lib/dp/snapshot.ts src/lib/dp/geo.ts src/lib/dp/useTripEngine.ts src/lib/dp/evidenceCloud.ts src/components/dp/CloudAutoSync.tsx src/components/dp/CloudReconcile.tsx src/components/dp/CloudRestore.tsx src/components/dp/CloudEvidenceSync.tsx src/components/dp/EvidenceList.tsx src/components/dp/CloudAccount.tsx src/components/dp/CloudBackup.tsx src/lib/dp/blobs.ts src/lib/dp/evidence.ts src/lib/dp/store.ts src/routes/viagem.tsx src/components/ui/button.tsx",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:native": "vite build --mode native",
+    "native:sync": "npm run build:native && cap sync",
+    "native:android": "cap open android",
+    "native:ios": "cap open ios"
   },
   "overrides": {
     "rolldown": "1.2.1",
     "@tanstack/start-server-core": "1.169.39"
   },
   "dependencies": {
+    "@capacitor-community/background-geolocation": "1.2.26",
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/browser": "8.0.5",
+    "@capacitor/camera": "8.2.5",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/filesystem": "8.1.4",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/local-notifications": "8.3.1",
+    "@capacitor/share": "8.0.3",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -76,6 +90,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.3",
     "@eslint/js": "^9.32.0",
     "@playwright/test": "1.64.0",
     "@testing-library/react": "16.3.2",

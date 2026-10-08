@@ -1,43 +1,31 @@
-# CARVRUM — checklist de prontidão comercial do MVP
+# CARVRUM — prontidão comercial, versão 0.3.0
 
-> Produto em desenvolvimento: código atual em `dsoncmata-hub/driveproof`; ambiente web atual: https://driveproof-taupe.vercel.app/.
-> **Ainda não autorizado a anunciar "disponível para venda na App Store/Google Play".**
-> Nome CARVRUM depende de confirmação de marcas e disponibilidade; não assumir titularidade jurídica.
+Fonte oficial: `dsoncmata-hub/driveproof`. Web: https://driveproof-taupe.vercel.app/.
 
-## Funcionalidades com evidência parcial
+## Implementado e validado tecnicamente
 
-- [x] Login Google redireciona corretamente e usuário confirmou sessão.
-- [x] Snapshot de viagens/abastecimentos/evidências enviado ao Supabase e recuperado em outro navegador.
-- [x] Foto original JPEG enviada ao Storage privado e associada a metadados sincronizados.
-- [x] Políticas RLS do Supabase configuradas para registros individuais.
-- [x] Bloqueios contra escrita em nuvem quando versão remota diverge.
-- [x] Isolamento SQL real entre duas identidades testado, com fixtures revertidas.
-- [ ] Teste cruzado de dois aparelhos com alterações simultâneas e conflito.
-- [ ] Teste do fluxo completo de recuperação de foto + SHA-256 em aparelho novo.
-- [x] Teste de navegador bloqueia restauração sobre aparelho que já contém registros.
-- [ ] Confirmar limites de armazenamento/custos e política de retenção de fotos e snapshots.
-- [ ] Política de privacidade, termos e consentimento LGPD (GPS, fotos, conta Google).
-- [ ] Fluxo de exclusão de conta e dados pessoais.
-- [ ] Aplicativo iOS/Android empacotado, assinatura e publicação/validação nas lojas (PWA web não equivale a aplicativo nativo).
-- [ ] Avaliação das limitações de GPS em segundo plano no iPhone; decidir tecnologia nativa para telemetria contínua.
-- [ ] Pagamentos, precificação, condições comerciais e documentação fiscal quando aplicável.
-- [ ] CARVRUM aplicado às telas/metadados web; titularidade e ícones nativos ainda pendentes.
-- [ ] Testes end-to-end de produção, telemetria de erros e suporte.
-- [ ] Revisão de segurança e permissões de repositório, variáveis de ambiente e infraestrutura.
+- IndexedDB separado por conta, importação do formato legado sem apagar a origem, fechamento do espaço ao sair e retomada offline de sessão previamente verificada.
+- GPS persistido incrementalmente em blocos de 500 pontos, cálculo incremental de métricas e rastreador que permanece ativo entre rotas.
+- Sincronização privada em três versões, protocolo de blocos GPS imutáveis e CAS; cliente antigo não pode substituir snapshot de protocolo 2.
+- Preservação e exportação das duas versões em conflitos; fotos verificadas por SHA-256, recuperação e reparo com preservação dos bytes divergentes.
+- Consentimento de localização revogável, exportação dos registros/originais, rotas de privacidade, termos e exclusão autenticada.
+- Função Supabase de exclusão publicada: sessão recente, bloqueio de alterações durante processamento, remoção de arquivos/cópias operacionais do titular e revogação de sessões.
+- Teste real de exclusão com conta temporária: login, foto, snapshot, backup manual, exclusão e recusa do JWT antigo. Fixtures removidas; conta, objeto, revisão e conteúdo anteriores preservados.
+- Projetos Capacitor Android/iOS com assets embarcados, integração GPS nativa, câmera, compartilhamento de arquivos e retorno PKCE vinculado a nonce.
+- CI sequencial: testes web, assets nativos estáticos, Android APK de teste/AAB sem assinatura comercial e iOS para simulador. Compilação não comprova funcionamento em telefone físico.
 
-## Critério para notificação de prontidão
+## Ainda impede o lançamento comercial
 
-Somente após testes e evidências para todos os requisitos obrigatórios, distingue-se:
+- Testar em dois aparelhos físicos, GPS com tela bloqueada/segundo plano, ausência de rede, bateria, atualização do aplicativo, sincronização concorrente e recuperação de fotos reais.
+- Configurar/confirmar o redirect `carvrum://auth-callback**` no Supabase e testar login nativo. iOS oferece acesso por e-mail; Google permanece na web/Android. Não pressupor autorização de Sign in with Apple.
+- Contas Apple Developer/Play Console, titular do aplicativo e identificador definitivo. `com.dsoncmata.carvrum` é um namespace técnico provisório.
+- Assinaturas e certificados mantidos fora do repositório, TestFlight/teste interno, screenshots reais, conta de revisão e aprovação das lojas.
+- Identificação comercial do controlador, contato de privacidade/suporte, retenção, validação jurídica dos textos e formulários de privacidade das lojas.
+- Preços, condições comerciais e decisão entre venda do aplicativo, assinatura ou piloto gratuito. Cobrança, restauração de compras e cancelamento dependem dessa decisão e dos produtos cadastrados nas lojas.
+- Monitoramento de produção com redação de dados pessoais e orçamento/limites de armazenamento.
 
-1. **Pronto para submissão** — build de loja e documentação completos;
-2. **Disponível para venda** — loja aprovou e listagem está efetivamente publicada com comercialização operante.
+## Restrição preservada
 
-## Limites operacionais
+O job de backup `0 */12 * * *`, função de captura e função de status não foram alterados. A exclusão explicitamente solicitada pelo titular remove suas cópias operacionais, sem alterar agendamento ou apagar dados de outros titulares. O aviso do advisor para `driveproof_backup_status` foi registrado; sua correção exige uma etapa futura no escopo de backups. As tabelas privadas sem políticas são intencionalmente inacessíveis pela API comum.
 
-A rotina pg_cron 0 */12 * * * foi instalada para snapshots de dados no banco. Essa rotina não protege automaticamente os binários existentes no Storage. Não alterar rotina sem necessidade; desenvolvimento funcional tem prioridade definida pelo usuário.
-
-Acompanhamento de prontidão deve ser fundamentado em execução real de CI/testes, não apenas em commits publicados na Vercel.
-
-## Atualização técnica — 08/10/2026
-
-Conciliação em três versões, escolha explícita de conflitos, conferência de originais, GPS e testes implementados. Consulte [validação](VALIDATION_2026-10-08.md) e [preparação para lojas](STORE_SUBMISSION_PLAN.md). Testes controlados de navegador não equivalem a validação em dois telefones físicos.
+Pronto para compilação/teste não significa pronto para submissão. Disponível para venda exige aprovação das lojas e operação comercial definida.

@@ -30,3 +30,10 @@ Registros existentes e nomes das chaves locais permanecem compatíveis. Originai
 
 Supabase: `pylmernfpgcwxylzcbqi`. Implantação web existente: https://driveproof-taupe.vercel.app/.
 A rotina de backup a cada 12 horas foi preservada. Não limpar armazenamento local antes de confirmar a disponibilidade de registros e originais em outro aparelho.
+
+
+## CARVRUM 0.3.0
+
+Os registros agora usam IndexedDB por conta e GPS em blocos incrementais. A sincronização usa CAS com protocolo 2, preservação de conflitos e fotos privadas verificadas por SHA-256. Há consentimento revogável, exportação de registros/originais e exclusão autenticada no aplicativo e na web.
+
+Para gerar os projetos móveis: `npm run native:sync`. Android/iOS estão versionados e usam assets locais. Consulte [preparação para lojas](docs/STORE_SUBMISSION_PLAN.md), [validação](docs/VALIDATION_2026-10-08.md) e [pendências comerciais](docs/MVP_RELEASE_GATE.md). APK debug, AAB sem assinatura comercial e app de simulador são destinados a teste, não representam publicação nas lojas.

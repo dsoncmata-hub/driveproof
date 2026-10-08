@@ -11,6 +11,8 @@ import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
+import { AccountProvider } from "@/components/dp/AccountProvider";
+import { TripTracker } from "@/components/dp/TripTracker";
 
 function NotFoundComponent() {
   return (
@@ -99,12 +101,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter+Tight:wght@400;500;600;700&display=swap",
-      },
+      ...(import.meta.env.MODE === "native"
+        ? []
+        : [
+            { rel: "preconnect", href: "https://fonts.googleapis.com" },
+            {
+              rel: "preconnect",
+              href: "https://fonts.gstatic.com",
+              crossOrigin: "anonymous" as const,
+            },
+            {
+              rel: "stylesheet",
+              href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter+Tight:wght@400;500;600;700&display=swap",
+            },
+          ]),
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
     ],
@@ -135,7 +145,11 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <AccountProvider>
+        <TripTracker>
+          <Outlet />
+        </TripTracker>
+      </AccountProvider>
       <Toaster position="top-center" richColors closeButton />
     </QueryClientProvider>
   );

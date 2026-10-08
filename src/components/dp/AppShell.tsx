@@ -36,7 +36,20 @@ export function AppShell({
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-4">{children}</main>
+      <main className="mx-auto max-w-3xl px-4 py-4">
+        {children}
+        <footer className="mt-8 flex flex-wrap gap-4 text-xs text-muted-foreground">
+          <Link to="/privacidade" className="underline">
+            Privacidade
+          </Link>
+          <Link to="/termos" className="underline">
+            Condições de uso
+          </Link>
+          <Link to="/excluir-conta" className="underline">
+            Excluir conta
+          </Link>
+        </footer>
+      </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/98 backdrop-blur safe-bottom no-print">
         <div className="mx-auto grid max-w-3xl grid-cols-5">

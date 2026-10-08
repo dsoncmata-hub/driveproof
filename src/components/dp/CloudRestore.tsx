@@ -2,13 +2,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { acknowledge, checkCloudIdentity, withCloudLock } from "@/lib/dp/cloudSync";
-import { parseSnapshot } from "@/lib/dp/snapshot";
+import { hydrateRemoteSnapshot } from "@/lib/dp/trackCloud";
 import { supabase } from "@/lib/dp/supabase";
 import { readDb, writeDb, type DbShape } from "@/lib/dp/store";
 
 type CloudRow = { revision: number; updated_at: string; snapshot: DbShape };
-const DB_KEY = "driveproof:v1";
-const MAX_BYTES = 4_000_000;
 const hasContent = (db: DbShape) =>
   !!(
     db.activeTripId ||
@@ -45,15 +43,12 @@ export function CloudRestore({ userId }: { userId: string }) {
       if (!Number.isSafeInteger(row.revision) || row.revision < 1) {
         throw Error("A cópia na nuvem tem um formato inesperado. Nenhum dado foi alterado.");
       }
-      row.snapshot = parseSnapshot(row.snapshot);
+      row.snapshot = await hydrateRemoteSnapshot(userId, row.snapshot);
       if (row.snapshot.activeTripId) {
         throw Error(
           "Esta cópia contém viagem em andamento e não pode ser recuperada automaticamente.",
         );
       }
-      const json = JSON.stringify(row.snapshot);
-      if (new TextEncoder().encode(json).length > MAX_BYTES)
-        throw Error("Cópia maior que o limite seguro deste dispositivo.");
       if (
         !row.snapshot.trips.length &&
         !row.snapshot.fuelings.length &&
@@ -85,26 +80,8 @@ export function CloudRestore({ userId }: { userId: string }) {
 
       await checkCloudIdentity(userId);
       if (hasContent(readDb())) throw Error("Dados locais mudaram. Recuperação cancelada.");
-      // Acknowledge the exact remote revision BEFORE store listeners schedule an upload.
-      const revisionKey = "driveproof:auto-sync:revision:" + userId;
-      const oldDb = localStorage.getItem(DB_KEY);
-      const oldRevision = localStorage.getItem(revisionKey);
-      try {
-        localStorage.setItem(DB_KEY, json);
-        localStorage.setItem(revisionKey, String(row.revision));
-      } catch (e) {
-        try {
-          if (oldDb === null) localStorage.removeItem(DB_KEY);
-          else localStorage.setItem(DB_KEY, oldDb);
-          if (oldRevision === null) localStorage.removeItem(revisionKey);
-          else localStorage.setItem(revisionKey, oldRevision);
-        } catch {
-          /* browser quota or blocked storage; avoid further changes */
-        }
-        throw e;
-      }
-      writeDb(row.snapshot);
-      acknowledge(userId, row.revision, row.snapshot);
+      await writeDb(row.snapshot);
+      await acknowledge(userId, row.revision, row.snapshot);
       toast.success("Registros recuperados da nuvem. Atualizando a tela…");
       window.location.reload();
     } catch (e) {

@@ -1,3 +1,6 @@
+import { Camera as NativeCamera, CameraResultType, CameraSource } from "@capacitor/camera";
+import { isNative } from "@/lib/dp/native";
+import { scopeGeneration } from "@/lib/dp/accountScope";
 import { useEffect, useRef, useState } from "react";
 import { Camera, Check, ImageUp, X } from "lucide-react";
 import { toast } from "sonner";
@@ -45,6 +48,34 @@ export function EvidenceCapture({
     }
   }
 
+  async function openCamera() {
+    if (!isNative()) {
+      setCameraOpen(true);
+      return;
+    }
+    const scope = scopeGeneration();
+    setBusy(true);
+    try {
+      const photo = await NativeCamera.getPhoto({
+        source: CameraSource.Camera,
+        resultType: CameraResultType.Uri,
+        quality: 100,
+        allowEditing: false,
+        saveToGallery: false,
+      });
+      if (!photo.webPath) throw Error("A câmera não retornou um arquivo.");
+      const response = await fetch(photo.webPath);
+      const blob = await response.blob();
+      if (scope !== scopeGeneration())
+        throw Error("A conta mudou durante a captura. Repita na conta correta.");
+      await handleFile(blob, true, `${category}-${Date.now()}.${photo.format}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Captura não concluída.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
@@ -70,7 +101,7 @@ export function EvidenceCapture({
           size="lg"
           className="min-h-14 w-full whitespace-normal break-words text-center"
           disabled={busy}
-          onClick={() => setCameraOpen(true)}
+          onClick={() => void openCamera()}
         >
           <Camera className="size-5" /> Câmera do app
         </Button>
@@ -159,9 +190,13 @@ function CameraSheet({
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d")?.drawImage(video, 0, 0);
-    canvas.toBlob((blob) => {
-      if (blob) void onShot(blob);
-    }, "image/jpeg", 0.92);
+    canvas.toBlob(
+      (blob) => {
+        if (blob) void onShot(blob);
+      },
+      "image/jpeg",
+      0.92,
+    );
   }
 
   return (
