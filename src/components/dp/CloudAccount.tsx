@@ -84,8 +84,8 @@ export function CloudAccount() {
         <div className="space-y-3">
           <p className="text-sm">Conectado como <strong>{user.email}</strong></p>
           <p className="text-xs text-muted-foreground">
-            A conta foi autenticada. A sincronização dos registros ainda não foi ativada;
-            viagens e abastecimentos continuam salvos somente neste aparelho.
+            Sua conta está conectada. Os registros permanecem neste aparelho; abaixo você pode
+            sincronizá-los, recuperar dados e gerenciar as fotos originais na nuvem.
           </p>
           <CloudBackup userId={user.id} />
           <CloudAutoSync userId={user.id} />
