@@ -64,11 +64,11 @@ export function EvidenceCapture({
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Button
           type="button"
           size="lg"
-          className="min-h-14"
+          className="min-h-14 w-full whitespace-normal break-words text-center"
           disabled={busy}
           onClick={() => setCameraOpen(true)}
         >
@@ -78,7 +78,7 @@ export function EvidenceCapture({
           type="button"
           size="lg"
           variant="secondary"
-          className="min-h-14"
+          className="min-h-14 w-full whitespace-normal break-words text-center"
           disabled={busy}
           onClick={() => fileRef.current?.click()}
         >
