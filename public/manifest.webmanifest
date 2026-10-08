@@ -1,0 +1,17 @@
+{
+  "name": "DriveProof — registro técnico de viagens",
+  "short_name": "DriveProof",
+  "description": "Registro de viagens, evidências e variáveis que afetam consumo de combustível.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1b1e24",
+  "theme_color": "#1b1e24",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
