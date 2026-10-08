@@ -83,3 +83,21 @@ describe("immutable GPS transfer", () => {
     });
   });
 });
+
+it("moves a long trip above 4 MB as small blocks and restores every sample", async () => {
+  const points = Array.from({ length: 60_000 }, (_, i) => ({
+    t: i * 1000 + 1,
+    lat: 0,
+    lon: i / 1_000_000,
+    speed: 1,
+    accuracy: 5,
+    altitude: null,
+  }));
+  const long = { ...emptyDb(), trips: [{ ...trip, id: "longTrip", points, endedAt: 60_000_001 }] };
+  expect(new TextEncoder().encode(JSON.stringify(long)).length).toBeGreaterThan(4_000_000);
+  const transport = await prepareRemoteSnapshot("longOwner", long);
+  expect(new TextEncoder().encode(JSON.stringify(transport)).length).toBeLessThan(20_000);
+  expect(transport.trips[0]!.trackChunks).toHaveLength(120);
+  await deleteLocalScope("longOwner");
+  expect((await hydrateRemoteSnapshot("longOwner", transport)).trips[0]!.points).toEqual(points);
+});

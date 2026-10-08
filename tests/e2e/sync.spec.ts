@@ -244,6 +244,7 @@ test("explicitly resolves a content conflict and preserves both reviewed version
       };
     });
   });
+  await expect(page.getByRole("button", { name: "Exportar as duas versões" })).toBeVisible();
   expect(review).toHaveLength(1);
   expect(review[0].local.fuelings[0].note).toBe("local version");
   expect(review[0].cloud.fuelings[0].note).toBe("cloud version");

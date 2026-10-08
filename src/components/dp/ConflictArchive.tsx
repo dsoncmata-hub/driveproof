@@ -8,13 +8,18 @@ export function ConflictArchive({ userId }: { userId: string }) {
   const [rows, setRows] = useState<{ key: string; value: Review }[]>([]);
   useEffect(() => {
     let alive = true;
-    void auxiliaryList<Review>("reviews", userId)
-      .then((values) => {
-        if (alive) setRows(values.sort((a, b) => b.value.at - a.value.at));
-      })
-      .catch((e) => toast.error(e.message));
+    const refresh = () => {
+      void auxiliaryList<Review>("reviews", userId)
+        .then((values) => {
+          if (alive) setRows(values.sort((a, b) => b.value.at - a.value.at));
+        })
+        .catch((e) => toast.error(e.message));
+    };
+    refresh();
+    window.addEventListener("carvrum:conflict-archive", refresh);
     return () => {
       alive = false;
+      window.removeEventListener("carvrum:conflict-archive", refresh);
     };
   }, [userId]);
   return (

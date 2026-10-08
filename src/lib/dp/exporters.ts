@@ -8,6 +8,7 @@ import { tankToTankConsumption, tripPhysicalKmPerL, deviation } from "./analysis
 import { fmtDateTime } from "./format";
 
 export async function downloadBlob(name: string, blob: Blob) {
+  const scope = localScope();
   try {
     if (Capacitor.isNativePlatform()) {
       const safeName = name.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -17,12 +18,14 @@ export async function downloadBlob(name: string, blob: Blob) {
         reader.onload = () => resolve(String(reader.result).split(",")[1]!);
         reader.readAsDataURL(blob);
       });
+      if (scope !== localScope()) throw Error("A conta mudou durante a exportação.");
       const written = await Filesystem.writeFile({
-        path: "exports/" + localScope() + "/" + safeName,
+        path: "exports/" + scope + "/" + safeName,
         data,
         directory: Directory.Cache,
         recursive: true,
       });
+      if (scope !== localScope()) throw Error("A conta mudou durante a exportação.");
       await Share.share({ title: "Exportar CARVRUM", files: [written.uri] });
       return;
     }
@@ -41,7 +44,13 @@ export function download(name: string, content: string, mime: string) {
 }
 
 function csvEscape(v: unknown): string {
-  const s = v == null ? "" : String(v);
+  const original = v == null ? "" : String(v);
+  // A visible text prefix remains literal even if a spreadsheet saves/reopens CSV.
+  // Numeric measurements keep their numeric form. JSON exports retain exact source text.
+  const numeric =
+    /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(original) && Number.isFinite(Number(original));
+  const dangerous = /^\s*[=+@\-＝＋＠－]/u.test(original) || /^[\t\r\n]/u.test(original);
+  const s = dangerous && !numeric ? "texto: " + original : original;
   return `"${s.replace(/"/g, '""')}"`;
 }
 

@@ -33,7 +33,15 @@ function EvidenceThumb({ id }: { id: string }) {
       </div>
     );
   }
-  return <img src={url} alt="" className="size-16 shrink-0 rounded-md object-cover" />;
+  return (
+    <img
+      loading="lazy"
+      decoding="async"
+      src={url}
+      alt=""
+      className="size-16 shrink-0 rounded-md object-cover"
+    />
+  );
 }
 
 async function exportOriginal(e: Evidence) {

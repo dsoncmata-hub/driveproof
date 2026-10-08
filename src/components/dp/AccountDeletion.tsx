@@ -1,3 +1,5 @@
+import { checkCloudIdentity } from "@/lib/dp/cloudSync";
+import { localScope } from "@/lib/dp/accountScope";
 import { deleteNativeExports } from "@/lib/dp/exporters";
 import { authRedirect } from "@/lib/dp/nativeAuth";
 import { useState } from "react";
@@ -44,12 +46,22 @@ export function AccountDeletion() {
     )
       return;
     setBusy(true);
+    let cloudDeleted = false;
     try {
       await flushLocalWrites();
+      await checkCloudIdentity(user.id);
+      const session = await supabase.auth.getSession();
+      if (
+        !session.data.session ||
+        session.data.session.user.id !== user.id ||
+        localScope() !== user.id
+      )
+        throw Error("A conta mudou. A exclusão foi cancelada.");
       const records = readDb(),
         owner = localStorage.getItem(LEGACY_OWNER_KEY);
       const { data, error } = await supabase.functions.invoke("delete-account", {
         body: { confirmation },
+        headers: { Authorization: "Bearer " + session.data.session.access_token },
       });
       if (error) {
         const context = (error as { context?: Response }).context;
@@ -62,6 +74,7 @@ export function AccountDeletion() {
         );
         return;
       }
+      cloudDeleted = true;
       await deleteAccountBlobs(
         user.id,
         owner === user.id ? records.evidences.map((e) => e.id) : [],
@@ -80,13 +93,24 @@ export function AccountDeletion() {
           key.startsWith("driveproof:conflict-review:" + user.id + ":")
         )
           localStorage.removeItem(key);
-      await supabase.auth.signOut({ scope: "local" });
+      if (localScope() === user.id) await supabase.auth.signOut({ scope: "local" });
       setMessage(
         "Sua conta foi excluída. Nesta instalação, os dados locais dessa conta também foram removidos. Outros aparelhos devem se conectar para encerrar suas sessões e limpar as cópias locais.",
       );
       toast.success("Conta excluída.");
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Não foi possível concluir. Tente novamente.");
+      const detail = e instanceof Error ? e.message : "Falha ao concluir a limpeza.";
+      if (cloudDeleted) {
+        if (localScope() === user.id) await supabase.auth.signOut({ scope: "local" });
+        toast.error(
+          "Conta excluída na nuvem; a limpeza local precisa ser concluída nas configurações do aparelho.",
+        );
+        setMessage(
+          "Conta excluída na nuvem. Não foi possível concluir a limpeza local: " +
+            detail +
+            " Remova os dados desta instalação nas configurações do aparelho/navegador.",
+        );
+      } else setMessage(detail);
     } finally {
       setBusy(false);
     }

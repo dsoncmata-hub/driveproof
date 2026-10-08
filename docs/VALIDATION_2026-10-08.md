@@ -46,7 +46,7 @@ A migração altera acesso à sincronização e à atualização de originais. N
 
 ## Continuação 0.3.0 — armazenamento privado e aplicativos
 
-- 73 testes Vitest passaram: isolamento local por conta, importação sem apagar legado, falha de persistência, blocos GPS, CAS/conflitos, sessão offline, nonce PKCE e lifecycle do rastreador nativo.
+- 82 testes Vitest passaram: isolamento local por conta, importação sem apagar legado, falha de persistência, blocos GPS, CAS/conflitos, sessão offline, nonce PKCE e lifecycle do rastreador nativo.
 - Dez fluxos Playwright passaram na web. Incluem concorrência em dois contextos isolados, logout/conta A/conta B/retorno à A, abertura offline e reparo de foto que conserva os bytes divergentes.
 - TypeScript, build web, build SPA nativa e lint do núcleo passaram (somente o aviso preexistente de Fast Refresh do botão). `npm audit --omit=dev --audit-level=high`: zero vulnerabilidades.
 - Dez assertions RLS/CAS e seis assertions de exclusão/sessões passaram no Supabase real, com transações revertidas e zero fixtures restantes.
@@ -55,3 +55,11 @@ A migração altera acesso à sincronização e à atualização de originais. N
 - Advisor: dois avisos permanecem — proteção contra senhas vazadas desativada e RPC de status do backup SECURITY DEFINER. O login de produto usa Google/e-mail; não foi alterada configuração Auth administrativa nem rotina de backups. Tabelas privadas sem políticas são intencionalmente negadas a clientes.
 
 A CI inclui compilação Android (APK debug, AAB release sem assinatura comercial e lint) e iOS para simulador. Consultar o resultado efetivo da execução vinculada à PR antes de considerar esses pacotes validados. Nenhum ensaio em telefone físico, assinatura de distribuição ou publicação nas lojas foi realizado neste ambiente.
+
+Teste de trajeto longo: 60 mil pontos acima de 4 MB são enviados em 120 blocos, com metadados abaixo de 20 KB e reconstrução integral. O bloqueio antigo da interface sobre o snapshot completo foi removido; o limite de metadados do transporte permanece. Exemplos Android gerados pelo template (2+2 e pacote genérico) foram removidos, pois não validavam o CARVRUM.
+
+Exportações CSV recebem prefixo visível `texto:` para conteúdo que possa ser interpretado como fórmula, incluindo variantes Unicode e controles iniciais; números seguem numéricos. O JSON preserva o texto exato. Referência: https://owasp.org/www-community/attacks/CSV_Injection. Quatro testes de regressão cobrem esse fluxo.
+
+Primeira CI nativa completa (commit `62aa910`): https://github.com/dsoncmata-hub/driveproof/actions/runs/37860205219. Web, SPA estática, Android assembleDebug/bundleRelease/lintRelease e iOS xcodebuild para simulador passaram. Os artefatos são pacotes de teste, não assinados para venda. O código final recebe nova execução após a revisão.
+
+A exclusão no cliente captura o token da conta verificada, impede troca de titular durante a solicitação e distingue sucesso na nuvem de falha na limpeza local. Três testes cobrem essa proteção. Lint ampliado aos módulos novos: nenhum erro; avisos de Fast Refresh em componentes que também exportam hooks, sem efeito no build de produção.

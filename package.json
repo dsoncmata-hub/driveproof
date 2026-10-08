@@ -13,7 +13,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "check": "npm run test && npm run typecheck && npm run build",
-    "lint:core": "eslint src/lib/dp/cloudSync.ts src/lib/dp/reconcile.ts src/lib/dp/snapshot.ts src/lib/dp/geo.ts src/lib/dp/useTripEngine.ts src/lib/dp/evidenceCloud.ts src/components/dp/CloudAutoSync.tsx src/components/dp/CloudReconcile.tsx src/components/dp/CloudRestore.tsx src/components/dp/CloudEvidenceSync.tsx src/components/dp/EvidenceList.tsx src/components/dp/CloudAccount.tsx src/components/dp/CloudBackup.tsx src/lib/dp/blobs.ts src/lib/dp/evidence.ts src/lib/dp/store.ts src/routes/viagem.tsx src/components/ui/button.tsx",
+    "lint:core": "eslint src/lib/dp/cloudSync.ts src/lib/dp/reconcile.ts src/lib/dp/snapshot.ts src/lib/dp/geo.ts src/lib/dp/useTripEngine.ts src/lib/dp/evidenceCloud.ts src/components/dp/CloudAutoSync.tsx src/components/dp/CloudReconcile.tsx src/components/dp/CloudRestore.tsx src/components/dp/CloudEvidenceSync.tsx src/components/dp/EvidenceList.tsx src/components/dp/CloudAccount.tsx src/components/dp/CloudBackup.tsx src/lib/dp/blobs.ts src/lib/dp/evidence.ts src/lib/dp/store.ts src/routes/viagem.tsx src/components/ui/button.tsx src/lib/dp/accountScope.ts src/lib/dp/localRecords.ts src/lib/dp/trackCloud.ts src/lib/dp/native.ts src/lib/dp/nativeAuth.ts src/lib/dp/offlineAccount.ts src/lib/dp/privacy.ts src/lib/dp/exporters.ts src/components/dp/AccountProvider.tsx src/components/dp/AccountDeletion.tsx src/components/dp/ConflictArchive.tsx src/components/dp/TripTracker.tsx src/components/dp/PrivacyControl.tsx src/components/dp/EvidenceCapture.tsx",
     "test:e2e": "playwright test",
     "build:native": "vite build --mode native",
     "native:sync": "npm run build:native && cap sync",

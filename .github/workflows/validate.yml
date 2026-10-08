@@ -89,9 +89,13 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run native:sync
       - run: xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/DerivedData CODE_SIGNING_ALLOWED=NO build
+      - name: Launch packaged iOS app and capture visual smoke
+        run: bash scripts/ios-smoke.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: carvrum-ios-simulator-test-package
-          path: ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app
+          path: |
+            ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app
+            ios/smoke/carvrum-launch.png
           retention-days: 30
           if-no-files-found: error

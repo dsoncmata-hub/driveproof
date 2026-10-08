@@ -108,6 +108,7 @@ export async function syncRecords(
         cloud: remote,
         choices,
       });
+      window.dispatchEvent(new Event("carvrum:conflict-archive"));
     }
     let updatedRevision = revision;
     if (

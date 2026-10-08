@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 import { addFueling, readDb, update, useDb, uid } from "@/lib/dp/store";
 import { syncRecords } from "@/lib/dp/cloudSync";
 
-const MAX_BYTES = 4_000_000;
-
 export function CloudAutoSync({ userId }: { userId: string }) {
   const db = useDb();
   const enabledKey = "driveproof:auto-sync:" + userId;
@@ -28,12 +26,6 @@ export function CloudAutoSync({ userId }: { userId: string }) {
     const snapshot = readDb();
     if (snapshot.activeTripId) {
       setStatus("Viagem em andamento: envio pausado");
-      return;
-    }
-    const json = JSON.stringify(snapshot);
-    if (new TextEncoder().encode(json).length > MAX_BYTES) {
-      setStatus("Limite de 4 MB atingido. Faça backup e entre em contato com suporte.");
-      blocked.current = true;
       return;
     }
     inFlight.current = true;
