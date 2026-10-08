@@ -72,8 +72,8 @@ export function StationPicker({
 
   function saveManual() {
     const name = form.name.trim();
-    if (!name) return toast.error("Informe o nome do posto.");
-    if (!validCnpj(form.cnpj)) return toast.error("CNPJ deve ter 14 dígitos (ou deixe em branco).");
+    if (!name) { toast.error("Informe o nome do posto."); return; }
+    if (!validCnpj(form.cnpj)) { toast.error("CNPJ deve ter 14 dígitos (ou deixe em branco)."); return; }
     const st: Station = {
       id: uid("st"),
       name: name.slice(0, 120),
