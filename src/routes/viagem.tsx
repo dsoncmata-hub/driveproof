@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Play, Radar, Square, Satellite } from "lucide-react";
+import { Play, Radar, Square, Satellite, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/dp/AppShell";
 import { ChecklistForm } from "@/components/dp/ChecklistForm";
@@ -10,7 +10,7 @@ import { DrivingWarning, Notice, Panel, Stat, TrackMap } from "@/components/dp/p
 import { Button } from "@/components/ui/button";
 import { defaultChecklist } from "@/lib/dp/defaults";
 import { fmtDuration, fmtNum } from "@/lib/dp/format";
-import { createTrip, finishTrip, patchTrip, useDb } from "@/lib/dp/store";
+import { createTrip, deleteTrip, finishTrip, patchTrip, useDb } from "@/lib/dp/store";
 import { useTripEngine } from "@/lib/dp/useTripEngine";
 import type { Checklist } from "@/lib/dp/types";
 
@@ -99,6 +99,26 @@ function ViagemPage() {
     patchTrip(activeTrip.id, { endedAt: Date.now() });
     toast.success("Viagem encerrada");
     navigate({ to: "/historico/$tripId", params: { tripId: activeTrip.id } });
+  }
+
+  function handleDiscardEmptyTrip() {
+    if (!activeTrip) return;
+    const hasEvidence = db.evidences.some((item) => item.tripId === activeTrip.id);
+    const hasFueling = db.fuelings.some((item) => item.tripId === activeTrip.id);
+    const hasMeasurements =
+      activeTrip.points.length > 0 ||
+      activeTrip.distanceKm > 0 ||
+      hasEvidence ||
+      hasFueling;
+    if (hasMeasurements) {
+      toast.error("Esta viagem possui medições ou registros associados e não pode ser descartada.");
+      return;
+    }
+    if (!window.confirm("Descartar esta viagem vazia? Esta ação exclui apenas o rascunho sem registros e não pode ser desfeita.")) return;
+    engine.stop();
+    deleteTrip(activeTrip.id);
+    toast.success("Viagem vazia descartada");
+    navigate({ to: "/" });
   }
 
   return (
@@ -245,8 +265,12 @@ function ViagemPage() {
               <Button variant="destructive" className="mt-3 min-h-16 w-full text-base" onClick={handleFinish}>
                 <Square className="size-5" /> Encerrar viagem
               </Button>
+              <Button variant="outline" className="mt-3 min-h-12 w-full" onClick={handleDiscardEmptyTrip}>
+                <Trash2 className="size-4" /> Descartar viagem vazia
+              </Button>
               <p className="mt-2 text-xs text-muted-foreground">
-                A viagem fica salva neste aparelho e é retomada mesmo se o app for fechado.
+                Só é possível descartar viagens sem GPS, evidências ou abastecimentos vinculados.
+                Viagens com registros permanecem preservadas. Os dados ficam neste aparelho.
               </p>
             </Panel>
           </>
