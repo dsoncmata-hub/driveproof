@@ -37,7 +37,7 @@ export function CloudEvidenceSync({ userId }: { userId: string }) {
     }
     if (!window.confirm("Enviar os arquivos originais das evidências deste aparelho para seu espaço privado no Supabase? Inclui fotografias e dados de localização vinculados. Os arquivos locais serão preservados.")) return;
     setBusy(true);
-    let sent = 0, missing = 0, failed = 0;
+    let sent = 0, existing = 0, missing = 0, failed = 0;
     try {
       await checkIdentity();
       for (const e of evidence) {
@@ -52,14 +52,20 @@ export function CloudEvidenceSync({ userId }: { userId: string }) {
             cacheControl: "3600",
             upsert: false,
           });
-          if (error && !/already exists|duplicate|409/i.test(error.message)) { failed++; continue; }
+          if (error) {
+            if (/already exists|duplicate|409/i.test(error.message)) { existing++; continue; }
+            failed++;
+            continue;
+          }
           sent++;
         } catch { failed++; }
       }
-      setStatus("Envio finalizado: " + sent + " arquivo(s) enviado(s)/já presentes, " + missing +
-        " ausente(s) neste aparelho, " + failed + " falha(s).");
-      if (failed) toast.error("Algumas fotos não foram enviadas. Confira o resumo.");
-      else toast.success("Envio de fotos concluído. Confira o resumo.");
+      setStatus("Novos arquivos enviados: " + sent + " · Já existentes na nuvem: " + existing +
+        " · Sem original neste aparelho: " + missing + " · Falhas: " + failed + ".");
+      if (failed) toast.error("Algumas fotografias falharam. Confira o resumo.");
+      else if (sent > 0) toast.success(sent + " foto(s) original(is) enviada(s) para a nuvem.");
+      else if (existing > 0) toast.info("Nenhuma foto nova: os arquivos já estão na nuvem.");
+      else toast.warning("Nenhuma fotografia enviada. As evidências podem ser demonstrações sem arquivo original.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao autenticar envio.");
     } finally { setBusy(false); }
@@ -100,7 +106,7 @@ export function CloudEvidenceSync({ userId }: { userId: string }) {
       <p className="text-xs text-muted-foreground">
         Armazenamento privado e opcional. Os arquivos são conferidos com SHA-256
         antes do envio e após o download. Somente JPEG, PNG, WebP ou PDF até 20 MB.
-        Evidências apenas de demonstração podem não possuir arquivo original.
+        Evidências apenas de demonstração podem não possuir arquivo original. Este botão\n        envia fotos já anexadas às evidências; para adicionar uma foto nova, abra\n        uma viagem ou abastecimento e use a captura de evidência.
       </p>
       <p className="text-xs" role="status">{status}</p>
       <Button type="button" className="min-h-12 w-full" disabled={busy} onClick={() => void upload()}>
