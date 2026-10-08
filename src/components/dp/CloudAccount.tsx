@@ -30,7 +30,7 @@ export function CloudAccount() {
 
   async function sendLink() {
     const address = email.trim();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(address)) {
+    if (!address.includes("@") || !address.split("@")[1]?.includes(".")) {
       toast.error("Informe um e-mail válido.");
       return;
     }
