@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/dp/supabase";
 import { getBlob, putBlob } from "@/lib/dp/blobs";
 import { sha256OfBlob } from "@/lib/dp/hash";
-import { readDb } from "@/lib/dp/store";
+import { readDb, writeDb, type DbShape } from "@/lib/dp/store";
 import type { Evidence } from "@/lib/dp/types";
 
 const BUCKET = "driveproof-evidence";
@@ -72,6 +72,67 @@ export function CloudEvidenceSync({ userId }: { userId: string }) {
     } finally { setBusy(false); }
   }
 
+
+  async function receiveNewEvidence() {
+    setBusy(true);
+    try {
+      await checkIdentity();
+      const { data, error } = await supabase.from("cloud_sync_state")
+        .select("revision,snapshot").eq("user_id", userId).maybeSingle();
+      if (error) throw error;
+      if (!data) { setStatus("Não há cópia sincronizada na nuvem."); return; }
+      const cloud = data.snapshot as DbShape;
+      const local = readDb();
+      if (!cloud || cloud.version !== 1 || !Array.isArray(cloud.evidences) ||
+        !Array.isArray(cloud.trips) || !Array.isArray(cloud.fuelings) ||
+        !Array.isArray(cloud.stations) || !cloud.vehicle ||
+        !Number.isSafeInteger(data.revision) || data.revision < 1) {
+        throw Error("Formato inesperado na nuvem. Nenhum dado foi alterado.");
+      }
+      // Never overwrite different local records. Only accept a remote snapshot whose
+      // unrelated fields are identical and whose evidences include all local evidence.
+      const withoutEvidence = (d: DbShape) => {
+        const { evidences: unused, ...rest } = d;
+        return JSON.stringify(rest);
+      };
+      if (withoutEvidence(local) !== withoutEvidence(cloud)) {
+        throw Error("Há diferenças em viagens, abastecimentos ou configurações. Atualização bloqueada para preservar os dados.");
+      }
+      const remoteById = new Map(cloud.evidences.map(e => [e.id, e]));
+      if (local.evidences.some(e => {
+        const match = remoteById.get(e.id);
+        return !match || JSON.stringify(e) !== JSON.stringify(match);
+      })) throw Error("Conflito entre evidências locais e remotas. Nenhum dado foi alterado.");
+
+      const added = cloud.evidences.filter(e => !local.evidences.some(x => x.id === e.id));
+      if (!added.length) { setStatus("Nenhuma evidência nova na nuvem."); return; }
+      if (!window.confirm("Receber " + added.length + " nova(s) evidência(s) da nuvem? Os arquivos locais não serão excluídos ou substituídos.")) return;
+      const latest = readDb();
+      if (JSON.stringify(latest) !== JSON.stringify(local)) {
+        throw Error("Os registros mudaram durante a confirmação. Tente novamente.");
+      }
+      const revisionKey = "driveproof:auto-sync:revision:" + userId;
+      const oldRevision = localStorage.getItem(revisionKey);
+      const oldDb = localStorage.getItem("driveproof:v1");
+      const json = JSON.stringify(cloud);
+      try {
+        localStorage.setItem("driveproof:v1", json);
+        localStorage.setItem(revisionKey, String(data.revision));
+      } catch (e) {
+        if (oldDb === null) localStorage.removeItem("driveproof:v1");
+        else localStorage.setItem("driveproof:v1", oldDb);
+        if (oldRevision === null) localStorage.removeItem(revisionKey);
+        else localStorage.setItem(revisionKey, oldRevision);
+        throw e;
+      }
+      writeDb(cloud);
+      toast.success(added.length + " evidência(s) recebida(s). Agora recupere as fotos ausentes.");
+      setStatus(added.length + " evidência(s) atualizada(s). Clique em Recuperar fotos ausentes neste aparelho.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao atualizar evidências.");
+    } finally { setBusy(false); }
+  }
+
   async function download() {
     const evidence = [...readDb().evidences];
     if (!evidence.length) { setStatus("Nenhuma evidência cadastrada."); return; }
@@ -113,6 +174,7 @@ export function CloudEvidenceSync({ userId }: { userId: string }) {
       <Button type="button" className="min-h-12 w-full" disabled={busy} onClick={() => void upload()}>
         {busy ? "Processando…" : "Enviar fotos originais para a nuvem"}
       </Button>
+      <Button type="button" variant="outline" className="min-h-12 w-full" disabled={busy} onClick={() => void receiveNewEvidence()}>Atualizar cadastro de evidências da nuvem</Button>
       <Button type="button" variant="outline" className="min-h-12 w-full" disabled={busy} onClick={() => void download()}>
         Recuperar fotos ausentes neste aparelho
       </Button>
