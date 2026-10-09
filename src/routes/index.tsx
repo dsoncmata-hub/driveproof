@@ -39,6 +39,35 @@ function Home() {
     <AppShell title="Início" subtitle={db.vehicle.name}>
       <div className="space-y-4">
         <CloudAccount />
+        <Panel title="Planos CARVRUM — prévia comercial">
+          <p className="mb-3 text-sm text-muted-foreground">
+            Escolha como pretende usar o CARVRUM. As opções pagas estão em preparação
+            e não aceitam cobrança nesta versão de testes.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-border p-3">
+              <p className="font-semibold">Free</p>
+              <p className="mt-1 text-lg font-semibold">Grátis</p>
+              <p className="mt-2 text-xs text-muted-foreground">Viagens, abastecimentos e relatórios básicos em avaliação.</p>
+              <p className="mt-3 text-xs font-medium text-primary">Disponível para testar</p>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <p className="font-semibold">Pro</p>
+              <p className="mt-1 text-lg font-semibold">R$ 14,90/mês</p>
+              <p className="mt-2 text-xs text-muted-foreground">Custo por km, comparações e alertas avançados planejados.</p>
+              <p className="mt-3 text-xs font-medium text-amber-400">Em preparação · sem cobrança</p>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <p className="font-semibold">Frota</p>
+              <p className="mt-1 text-lg font-semibold">A partir de R$ 49,90/mês</p>
+              <p className="mt-2 text-xs text-muted-foreground">Painel de vários veículos e usuários planejado.</p>
+              <p className="mt-3 text-xs font-medium text-amber-400">Em preparação · sem cobrança</p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Valores indicativos sujeitos à validação. Nenhuma assinatura é criada nesta tela.
+          </p>
+        </Panel>
         <Panel title="Laboratório de homologação">
           <p className="mb-3 text-sm text-muted-foreground">
             Registre os testes de campo da versão 0.3.0, medições, falhas e evidências.
