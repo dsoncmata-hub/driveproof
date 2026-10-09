@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MS_TO_KMH, tripMetrics, validTrackPoint } from "./geo";
-import { patchTrip, readDb } from "./store";
+import { MS_TO_KMH, validTrackPoint } from "./geo";
+import { appendTripPoints, readDb } from "./store";
+import { locationAllowed } from "./privacy";
+import { localScope } from "./accountScope";
+import { isNative, nativeWatch } from "./native";
 import type { TrackPoint } from "./types";
 
 export type GeoStatus = "idle" | "solicitando" | "ativo" | "negado" | "indisponivel" | "erro";
@@ -24,7 +27,7 @@ export type EngineState = {
 };
 
 /**
- * Motor de rastreamento por GPS do navegador.
+ * Motor de rastreamento: GPS do navegador ou serviço nativo do Capacitor.
  * LIMITAÇÃO DE PWA: o navegador suspende a leitura de GPS quando a tela é
  * bloqueada ou o app vai para segundo plano no iOS. Precisão contínua em
  * background exigiria app nativo.
@@ -41,12 +44,16 @@ export function useTripEngine(activeTripId: string | null) {
   });
 
   const watchId = useRef<number | null>(null);
+  const nativeStop = useRef<(() => Promise<void>) | null>(null);
+  const nativeStarting = useRef(false);
+  const watchGeneration = useRef(0);
   const aboveSince = useRef<number | null>(null);
   const belowSince = useRef<number | null>(null);
   const snoozeUntil = useRef<number>(0);
   const activeTripIdRef = useRef<string | null>(activeTripId);
   const flushTimer = useRef<number | null>(null);
-  const buffer = useRef<{ tripId: string; point: TrackPoint }[]>([]);
+  const buffer = useRef<{ scope: string; tripId: string; point: TrackPoint }[]>([]);
+  const flushing = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     activeTripIdRef.current = activeTripId;
@@ -54,24 +61,27 @@ export function useTripEngine(activeTripId: string | null) {
   }, [activeTripId]);
 
   const flush = useCallback(() => {
-    for (const tripId of new Set(buffer.current.map((sample) => sample.tripId))) {
-      const trip = readDb().trips.find((t) => t.id === tripId);
-      if (!trip) continue;
-      const points = [...trip.points];
-      for (const sample of buffer.current.filter((s) => s.tripId === tripId)) {
-        if (
-          sample.point.t >= trip.startedAt &&
-          sample.point.t > (points.at(-1)?.t ?? 0) &&
-          (!trip.endedAt || sample.point.t <= trip.endedAt)
-        )
-          points.push(sample.point);
-      }
-      patchTrip(tripId, {
-        points,
-        ...tripMetrics(points, trip.startedAt, trip.endedAt ?? Date.now()),
+    const task = flushing.current
+      .catch(() => {})
+      .then(async () => {
+        const samples = [...buffer.current];
+        for (const tripId of new Set(samples.map((s) => s.tripId))) {
+          const selected = samples.filter((s) => s.tripId === tripId);
+          if (selected[0]?.scope !== localScope())
+            throw Error("A conta mudou; pontos anteriores preservados no espaço original.");
+          await appendTripPoints(
+            tripId,
+            selected.map((s) => s.point),
+          );
+          const removed = new Set(selected);
+          buffer.current = buffer.current.filter((s) => !removed.has(s));
+        }
       });
-      buffer.current = buffer.current.filter((s) => s.tripId !== tripId);
-    }
+    flushing.current = task;
+    void task.catch((error) =>
+      setState((s) => ({ ...s, status: "erro", errorMessage: error.message })),
+    );
+    return task;
   }, []);
 
   const onPosition = useCallback(
@@ -91,8 +101,8 @@ export function useTripEngine(activeTripId: string | null) {
       // Read synchronously: React may not have committed the new trip ID yet.
       activeTripIdRef.current = readDb().activeTripId;
       if (activeTripIdRef.current) {
-        buffer.current.push({ tripId: activeTripIdRef.current, point: p });
-        flush();
+        buffer.current.push({ scope: localScope(), tripId: activeTripIdRef.current, point: p });
+        void flush();
         if (kmh < STOP_SPEED_KMH) {
           belowSince.current ??= now;
         } else {
@@ -128,6 +138,56 @@ export function useTripEngine(activeTripId: string | null) {
   );
 
   const start = useCallback(() => {
+    if (!locationAllowed()) {
+      setState((s) => ({
+        ...s,
+        status: "negado",
+        errorMessage: "Autorize o registro de localização antes de ligar o GPS.",
+      }));
+      return;
+    }
+    if (isNative()) {
+      if (!readDb().activeTripId) {
+        setState((s) => ({
+          ...s,
+          status: "idle",
+          errorMessage: "Inicie uma viagem para ligar o GPS nativo.",
+        }));
+        return;
+      }
+      if (nativeStop.current || nativeStarting.current) return;
+      nativeStarting.current = true;
+      const generation = ++watchGeneration.current;
+      setState((s) => ({ ...s, status: "solicitando" }));
+      void nativeWatch(
+        (point) => {
+          if (generation !== watchGeneration.current || !locationAllowed()) return;
+          onPosition({
+            timestamp: point.t,
+            coords: {
+              latitude: point.lat,
+              longitude: point.lon,
+              speed: point.speed,
+              altitude: point.altitude,
+              accuracy: point.accuracy,
+            },
+          } as GeolocationPosition);
+        },
+        (message) => setState((s) => ({ ...s, status: "erro", errorMessage: message })),
+      )
+        .then(async (remove) => {
+          if (generation !== watchGeneration.current) await remove();
+          else nativeStop.current = remove;
+        })
+        .catch((e) => {
+          if (generation === watchGeneration.current)
+            setState((s) => ({ ...s, status: "erro", errorMessage: e.message }));
+        })
+        .finally(() => {
+          nativeStarting.current = false;
+        });
+      return;
+    }
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
       setState((s) => ({ ...s, status: "indisponivel" }));
       return;
@@ -148,7 +208,11 @@ export function useTripEngine(activeTripId: string | null) {
     flushTimer.current = window.setInterval(flush, 5000);
   }, [flush, onPosition]);
 
-  const stop = useCallback(() => {
+  const stop = useCallback(async () => {
+    ++watchGeneration.current;
+    const remove = nativeStop.current;
+    nativeStop.current = null;
+    if (remove) await remove();
     if (watchId.current != null) {
       navigator.geolocation.clearWatch(watchId.current);
       watchId.current = null;
@@ -157,21 +221,35 @@ export function useTripEngine(activeTripId: string | null) {
       window.clearInterval(flushTimer.current);
       flushTimer.current = null;
     }
-    flush();
+    await flush();
     setState((s) => ({ ...s, status: "idle", suggestStart: false, askStillDriving: false }));
   }, [flush]);
 
-  useEffect(() => () => stop(), [stop]);
+  useEffect(
+    () => () => {
+      void stop();
+    },
+    [stop],
+  );
 
   useEffect(() => {
-    const persist = () => flush();
+    const persist = () => {
+      void flush().catch(() => {});
+    };
+    const consent = () => {
+      if (!locationAllowed()) void stop().catch(() => {});
+    };
+    window.addEventListener("carvrum:privacy-change", consent);
+    window.addEventListener("storage", consent);
     window.addEventListener("pagehide", persist);
     document.addEventListener("visibilitychange", persist);
     return () => {
+      window.removeEventListener("carvrum:privacy-change", consent);
+      window.removeEventListener("storage", consent);
       window.removeEventListener("pagehide", persist);
       document.removeEventListener("visibilitychange", persist);
     };
-  }, [flush]);
+  }, [flush, stop]);
 
   const dismissStartSuggestion = useCallback(() => {
     aboveSince.current = null;

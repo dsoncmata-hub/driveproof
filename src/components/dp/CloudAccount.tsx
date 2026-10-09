@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import { Capacitor } from "@capacitor/core";
+import { authRedirect, loginWithGoogle } from "@/lib/dp/nativeAuth";
+import { useState } from "react";
+import { useAccount } from "./AccountProvider";
 import { toast } from "sonner";
 import { supabase } from "@/lib/dp/supabase";
 import { Button } from "@/components/ui/button";
@@ -9,30 +11,14 @@ import { CloudAutoSync } from "@/components/dp/CloudAutoSync";
 import { CloudRestore } from "@/components/dp/CloudRestore";
 import { CloudEvidenceSync } from "@/components/dp/CloudEvidenceSync";
 import { CloudReconcile } from "@/components/dp/CloudReconcile";
+import { ConflictArchive } from "./ConflictArchive";
+import { Link } from "@tanstack/react-router";
 
 export function CloudAccount() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, ready: loaded } = useAccount();
+  const googleAvailable = Capacitor.getPlatform() !== "ios";
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    void supabase.auth.getUser().then(({ data, error }) => {
-      if (!mounted) return;
-      if (error && error.name !== "AuthSessionMissingError") console.warn(error.message);
-      setUser(data.user ?? null);
-      setLoaded(true);
-    });
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted) setUser(session?.user ?? null);
-    });
-    return () => {
-      mounted = false;
-      subscription.subscription.unsubscribe();
-    };
-  }, []);
-
   async function sendLink() {
     const address = email.trim();
     if (!address.includes("@") || !address.split("@")[1]?.includes(".")) {
@@ -43,7 +29,7 @@ export function CloudAccount() {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email: address,
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: authRedirect() },
       });
       if (error) throw error;
       toast.success("Verifique seu e-mail para acessar a conta CARVRUM.");
@@ -57,11 +43,7 @@ export function CloudAccount() {
   async function signInWithGoogle() {
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: window.location.origin },
-      });
-      if (error) throw error;
+      await loginWithGoogle();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível conectar com o Google.");
     } finally {
@@ -74,7 +56,8 @@ export function CloudAccount() {
     const { error } = await supabase.auth.signOut();
     setBusy(false);
     if (error) toast.error(error.message);
-    else toast.success("Conta desconectada. Seus dados locais permanecem neste aparelho.");
+    else
+      toast.success("Conta desconectada. Seus registros ficam protegidos no espaço desta conta.");
   }
 
   return (
@@ -95,6 +78,10 @@ export function CloudAccount() {
           <CloudRestore key={"CloudRestore:" + user.id} userId={user.id} />
           <CloudReconcile key={"CloudReconcile:" + user.id} userId={user.id} />
           <CloudEvidenceSync key={"CloudEvidenceSync:" + user.id} userId={user.id} />
+          <ConflictArchive key={"ConflictArchive:" + user.id} userId={user.id} />
+          <Link to="/excluir-conta" className="block text-sm underline">
+            Gerenciar exclusão da minha conta
+          </Link>
           <Button type="button" variant="secondary" disabled={busy} onClick={signOut}>
             Sair da conta
           </Button>
@@ -102,19 +89,25 @@ export function CloudAccount() {
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Acesse com sua conta Google (Gmail) ou receba um link por e-mail. Seus registros locais
-            não serão apagados nem enviados automaticamente.
+            {googleAvailable
+              ? "Acesse com sua conta Google (Gmail) ou receba um link por e-mail."
+              : "Receba um link por e-mail para acessar sua conta CARVRUM."}{" "}
+            Seus registros locais não serão apagados nem enviados automaticamente.
           </p>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={busy}
-            onClick={signInWithGoogle}
-            className="min-h-14 w-full"
-          >
-            Continuar com Google (Gmail)
-          </Button>
-          <p className="text-center text-xs text-muted-foreground">ou acesse por e-mail</p>
+          {googleAvailable && (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy}
+                onClick={signInWithGoogle}
+                className="min-h-14 w-full"
+              >
+                Continuar com Google (Gmail)
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">ou acesse por e-mail</p>
+            </>
+          )}
           <label className="block">
             <span className="label-tec">E-mail</span>
             <input

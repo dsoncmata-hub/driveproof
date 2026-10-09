@@ -5,6 +5,8 @@ language plpgsql security invoker as $$
 declare
   a uuid := gen_random_uuid();
   b uuid := gen_random_uuid();
+  sa uuid := gen_random_uuid();
+  sb uuid := gen_random_uuid();
   snapshot jsonb := '{"version":1,"trips":[],"fuelings":[],"evidences":[],"stations":[],"vehicle":{},"activeTripId":null}'::jsonb;
   result jsonb := '[]'::jsonb;
   revision bigint;
@@ -12,8 +14,9 @@ declare
 begin
   begin
     insert into auth.users(id) values(a), (b);
+    insert into auth.sessions(id,user_id,created_at) values(sa,a,now()),(sb,b,now());
     execute 'set local role authenticated';
-    perform set_config('request.jwt.claims', jsonb_build_object('sub',a,'role','authenticated')::text, true);
+    perform set_config('request.jwt.claims', jsonb_build_object('sub',a,'role','authenticated','session_id',sa)::text, true);
     revision := public.cloud_sync_upload(0, snapshot);
     if revision is distinct from 1 then raise exception 'First CAS insert failed'; end if;
     result := result || '"owner_initial_upload"'::jsonb;
@@ -35,7 +38,7 @@ begin
       if sqlerrm = 'Malformed snapshot was allowed' then raise; end if;
       result := result || '"malformed_snapshot_rejected"'::jsonb;
     end;
-    perform set_config('request.jwt.claims', jsonb_build_object('sub',b,'role','authenticated')::text, true);
+    perform set_config('request.jwt.claims', jsonb_build_object('sub',b,'role','authenticated','session_id',sb)::text, true);
     select count(*) into visible_count from public.cloud_sync_state;
     if visible_count <> 0 then raise exception 'Cross-account snapshot leakage'; end if;
     result := result || '"second_account_cannot_read_first"'::jsonb;

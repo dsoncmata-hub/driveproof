@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { FileCheck2, MapPin } from "lucide-react";
-import { getBlobUrl, subscribeBlobs } from "@/lib/dp/blobs";
+import { toast } from "sonner";
+import { downloadBlob } from "@/lib/dp/exporters";
+import { verifyEvidenceBlob } from "@/lib/dp/evidenceCloud";
+import { getBlob, quarantinedBlobs, getBlobUrl, subscribeBlobs } from "@/lib/dp/blobs";
 import { LABELS } from "@/lib/dp/defaults";
 import { fmtCoord, fmtDateTime, shortHash } from "@/lib/dp/format";
 import type { Evidence } from "@/lib/dp/types";
@@ -30,9 +33,45 @@ function EvidenceThumb({ id }: { id: string }) {
       </div>
     );
   }
-  return <img src={url} alt="" className="size-16 shrink-0 rounded-md object-cover" />;
+  return (
+    <img
+      loading="lazy"
+      decoding="async"
+      src={url}
+      alt=""
+      className="size-16 shrink-0 rounded-md object-cover"
+    />
+  );
 }
 
+async function exportOriginal(e: Evidence) {
+  try {
+    const blob = await getBlob(e.id);
+    if (!blob)
+      throw Error("Original indisponível neste aparelho. Recupere-o pela área de fotos na nuvem.");
+    if (!(await verifyEvidenceBlob(e, blob)))
+      throw Error("O arquivo local diverge do SHA-256. Use a conferência e reparo de originais.");
+    await downloadBlob(e.fileName, blob);
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : "Não foi possível exportar.");
+  }
+}
+async function exportPreserved(e: Evidence) {
+  try {
+    const copies = await quarantinedBlobs(e.id);
+    if (!copies.length) {
+      toast.info("Não há versões preservadas após reparo para esta evidência.");
+      return;
+    }
+    for (const copy of copies)
+      await downloadBlob(
+        "carvrum-preservado-" + e.id + "-" + copy.key.split(":").at(-1) + ".bin",
+        copy.blob,
+      );
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : "Não foi possível exportar.");
+  }
+}
 export function EvidenceList({ items }: { items: Evidence[] }) {
   if (items.length === 0) {
     return <p className="text-sm text-muted-foreground">Nenhuma evidência registrada ainda.</p>;
@@ -60,6 +99,14 @@ export function EvidenceList({ items }: { items: Evidence[] }) {
               <MapPin className="size-3 shrink-0" /> {fmtCoord(e.lat, e.lon)}
             </p>
             <p className="numeric break-all text-xs text-data">SHA-256 {shortHash(e.sha256)}</p>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <button className="min-h-10 underline" onClick={() => void exportOriginal(e)}>
+                Exportar original
+              </button>
+              <button className="min-h-10 underline" onClick={() => void exportPreserved(e)}>
+                Exportar versões preservadas
+              </button>
+            </div>
             {e.note ? <p className="text-xs text-muted-foreground">{e.note}</p> : null}
           </div>
         </li>

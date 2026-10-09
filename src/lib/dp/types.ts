@@ -77,6 +77,14 @@ export type Trip = {
   startedAt: number;
   endedAt: number | null;
   points: TrackPoint[];
+  /** Remote transport only. Hydrated snapshots remove this manifest. */
+  trackChunks?: { hash: string; count: number }[];
+  telemetryState?: {
+    movingMs: number;
+    lastAltitude: number | null;
+    altitudeSamples: number;
+    altitudeGain: number;
+  };
   distanceKm: number;
   maxSpeedKmh: number;
   avgSpeedKmh: number;

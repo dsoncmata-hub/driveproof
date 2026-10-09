@@ -21,7 +21,9 @@ export default defineConfig({
       : {},
   },
   webServer: {
-    command: "npm run dev -- --host 127.0.0.1",
+    command: process.env["CARVRUM_NATIVE"]
+      ? "node scripts/serve-native.mjs"
+      : "npm run dev -- --host 127.0.0.1",
     url: "http://127.0.0.1:3000",
     reuseExistingServer: !process.env["CI"],
   },

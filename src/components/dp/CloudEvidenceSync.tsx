@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { acknowledge, checkCloudIdentity, withCloudLock } from "@/lib/dp/cloudSync";
-import { parseSnapshot } from "@/lib/dp/snapshot";
+import { hydrateRemoteSnapshot } from "@/lib/dp/trackCloud";
 import { EvidenceCapture } from "@/components/dp/EvidenceCapture";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/dp/supabase";
-import { uploadEvidence, recoverEvidence } from "@/lib/dp/evidenceCloud";
+import { uploadEvidence, recoverEvidence, repairEvidence } from "@/lib/dp/evidenceCloud";
 import { readDb, writeDb, useDb, type DbShape } from "@/lib/dp/store";
 import type { Evidence } from "@/lib/dp/types";
 
@@ -86,7 +86,7 @@ export function CloudEvidenceSync({ userId }: { userId: string }) {
         setStatus("Não há cópia sincronizada na nuvem.");
         return;
       }
-      const cloud = parseSnapshot(data.snapshot);
+      const cloud = await hydrateRemoteSnapshot(userId, data.snapshot);
       const local = readDb();
       if (
         !cloud ||
@@ -141,22 +141,8 @@ export function CloudEvidenceSync({ userId }: { userId: string }) {
       await checkIdentity();
       if (JSON.stringify(readDb()) !== JSON.stringify(local))
         throw Error("Dados locais mudaram. Tente novamente.");
-      const revisionKey = "driveproof:auto-sync:revision:" + userId;
-      const oldRevision = localStorage.getItem(revisionKey);
-      const oldDb = localStorage.getItem("driveproof:v1");
-      const json = JSON.stringify(cloud);
-      try {
-        localStorage.setItem("driveproof:v1", json);
-        localStorage.setItem(revisionKey, String(data.revision));
-      } catch (e) {
-        if (oldDb === null) localStorage.removeItem("driveproof:v1");
-        else localStorage.setItem("driveproof:v1", oldDb);
-        if (oldRevision === null) localStorage.removeItem(revisionKey);
-        else localStorage.setItem(revisionKey, oldRevision);
-        throw e;
-      }
-      writeDb(cloud);
-      acknowledge(userId, Number(data.revision), cloud);
+      await writeDb(cloud);
+      await acknowledge(userId, Number(data.revision), cloud);
       toast.success(added.length + " evidência(s) recebida(s). Agora recupere as fotos ausentes.");
       setStatus(
         added.length +
@@ -214,6 +200,36 @@ export function CloudEvidenceSync({ userId }: { userId: string }) {
     }
   }
 
+  async function repair() {
+    if (
+      !window.confirm(
+        "Conferir e reparar originais locais inválidos usando a cópia privada da nuvem? Cada arquivo divergente será preservado numa área de recuperação antes da substituição. Arquivos sem cópia válida na nuvem permanecem intactos.",
+      )
+    )
+      return;
+    setBusy(true);
+    let repaired = 0;
+    const failures: string[] = [];
+    try {
+      await checkIdentity();
+      for (const evidence of [...readDb().evidences]) {
+        try {
+          if ((await repairEvidence(userId, evidence)) === "repaired") repaired++;
+        } catch (error) {
+          failures.push(
+            evidence.fileName + ": " + (error instanceof Error ? error.message : "indisponível"),
+          );
+        }
+      }
+      setStatus(
+        `${repaired} original(is) recuperado(s)/reparado(s). ${failures.length} falha(s).` +
+          (failures.length ? " " + failures.join(" · ") : ""),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-2 rounded-md border border-border p-3">
       <p className="text-sm font-semibold">Fotos originais das evidências</p>
@@ -265,6 +281,15 @@ export function CloudEvidenceSync({ userId }: { userId: string }) {
         onClick={() => void withCloudLock(userId, download)}
       >
         Recuperar fotos ausentes neste aparelho
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={busy}
+        className="min-h-12 w-full"
+        onClick={() => void withCloudLock(userId, repair)}
+      >
+        Conferir e reparar originais inválidos
       </Button>
     </div>
   );

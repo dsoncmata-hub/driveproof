@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { getBlob, putBlob } from "./blobs";
+import { getBlob, putBlob, replaceBlobWithArchive } from "./blobs";
 import { sha256OfBlob } from "./hash";
 import { checkCloudIdentity } from "./cloudSync";
 import type { Evidence } from "./types";
@@ -79,4 +79,21 @@ export async function uploadEvidence(
   // A duplicate path or successful upload alone is not proof of an intact original.
   await downloadVerified(userId, e);
   return error ? "existing" : "sent";
+}
+
+export async function repairEvidence(userId: string, e: Evidence): Promise<"present" | "repaired"> {
+  await checkCloudIdentity(userId);
+  const local = await getBlob(e.id);
+  if (!local) {
+    await recoverEvidence(userId, e);
+    return "repaired";
+  }
+  if (await verifyEvidenceBlob(e, local)) return "present";
+  const cloud = await downloadVerified(userId, e);
+  await checkCloudIdentity(userId);
+  const latest = await getBlob(e.id);
+  if (!latest || (await sha256OfBlob(latest)) !== (await sha256OfBlob(local)))
+    throw Error("O original mudou durante a revisão. Tente novamente.");
+  await replaceBlobWithArchive(e.id, local, cloud);
+  return "repaired";
 }

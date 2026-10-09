@@ -121,17 +121,16 @@ export function CloudBackup({ userId }: { userId: string }) {
         )
       )
         return;
-      // Keep the local snapshot until the browser confirms that the restored copy fits.
-      const key = "driveproof:v1";
-      const previous = window.localStorage.getItem(key);
-      try {
-        window.localStorage.setItem(key, JSON.stringify(snapshot));
-      } catch (e) {
-        if (previous === null) window.localStorage.removeItem(key);
-        else window.localStorage.setItem(key, previous);
-        throw e;
-      }
-      writeDb(snapshot);
+      await checkCloudIdentity(userId);
+      if (
+        readDb().trips.length ||
+        readDb().fuelings.length ||
+        readDb().evidences.length ||
+        readDb().stations.length ||
+        readDb().activeTripId
+      )
+        throw Error("Os registros locais mudaram. Nada foi substituído.");
+      await writeDb(snapshot);
       toast.success("Backup restaurado neste aparelho.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao restaurar.");

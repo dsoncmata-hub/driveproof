@@ -24,12 +24,25 @@ export function StationPicker({
   const [msg, setMsg] = useState<string | null>(null);
   const [items, setItems] = useState<NearbySuggestion[]>([]);
   const [pending, setPending] = useState<NearbySuggestion | null>(null);
-  const [form, setForm] = useState({ name: "", address: "", city: "", brand: "", cnpj: "", localId: "", favorite: false });
+  const [form, setForm] = useState({
+    name: "",
+    address: "",
+    city: "",
+    brand: "",
+    cnpj: "",
+    localId: "",
+    favorite: false,
+  });
 
   const lastUse = new Map<string, number>();
-  for (const f of db.fuelings) if (f.stationId) lastUse.set(f.stationId, Math.max(lastUse.get(f.stationId) ?? 0, f.at));
+  for (const f of db.fuelings)
+    if (f.stationId) lastUse.set(f.stationId, Math.max(lastUse.get(f.stationId) ?? 0, f.at));
   const known = [...db.stations]
-    .sort((a, b) => Number(b.favorite) - Number(a.favorite) || (lastUse.get(b.id) ?? 0) - (lastUse.get(a.id) ?? 0))
+    .sort(
+      (a, b) =>
+        Number(b.favorite) - Number(a.favorite) ||
+        (lastUse.get(b.id) ?? 0) - (lastUse.get(a.id) ?? 0),
+    )
     .slice(0, 6);
   const selected = db.stations.find((s) => s.id === value) ?? null;
 
@@ -40,14 +53,15 @@ export function StationPicker({
     setLoading(false);
     if (r.ok) {
       setItems(r.items);
-      if (r.accuracyM && r.accuracyM > 100) setMsg(`Precisão do GPS baixa (±${Math.round(r.accuracyM)} m). Confira com atenção.`);
+      if (r.accuracyM && r.accuracyM > 100)
+        setMsg(`Precisão do GPS baixa (±${Math.round(r.accuracyM)} m). Confira com atenção.`);
     } else {
       setItems([]);
       setMsg(r.reason);
     }
   }
 
-  function confirmSuggestion(s: NearbySuggestion) {
+  async function confirmSuggestion(s: NearbySuggestion) {
     const existing = db.stations.find((x) => x.localId === s.externalId);
     const st: Station = existing ?? {
       id: uid("st"),
@@ -63,17 +77,23 @@ export function StationPicker({
       source: "sugestao_gps_confirmada",
       createdAt: Date.now(),
     };
-    if (!existing) addStation(st);
+    if (!existing) await addStation(st);
     onChange(st.id);
     setPending(null);
     setMode("lista");
     toast.success("Posto confirmado");
   }
 
-  function saveManual() {
+  async function saveManual() {
     const name = form.name.trim();
-    if (!name) { toast.error("Informe o nome do posto."); return; }
-    if (!validCnpj(form.cnpj)) { toast.error("CNPJ deve ter 14 dígitos (ou deixe em branco)."); return; }
+    if (!name) {
+      toast.error("Informe o nome do posto.");
+      return;
+    }
+    if (!validCnpj(form.cnpj)) {
+      toast.error("CNPJ deve ter 14 dígitos (ou deixe em branco).");
+      return;
+    }
     const st: Station = {
       id: uid("st"),
       name: name.slice(0, 120),
@@ -88,7 +108,7 @@ export function StationPicker({
       source: "manual",
       createdAt: Date.now(),
     };
-    addStation(st);
+    await addStation(st);
     onChange(st.id);
     setMode("lista");
     setForm({ name: "", address: "", city: "", brand: "", cnpj: "", localId: "", favorite: false });
@@ -102,10 +122,13 @@ export function StationPicker({
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{selected.name}</p>
             <p className="truncate text-xs text-muted-foreground">
-              {[selected.brand, selected.address, selected.city].filter(Boolean).join(" · ") || "sem endereço"}
+              {[selected.brand, selected.address, selected.city].filter(Boolean).join(" · ") ||
+                "sem endereço"}
             </p>
           </div>
-          <Button size="sm" variant="ghost" onClick={() => onChange(null)}>Trocar</Button>
+          <Button size="sm" variant="ghost" onClick={() => onChange(null)}>
+            Trocar
+          </Button>
         </div>
       ) : (
         <>
@@ -126,17 +149,27 @@ export function StationPicker({
                     onClick={() => toggleFavoriteStation(s.id)}
                     className="grid min-h-12 w-12 place-items-center rounded-md border border-border"
                   >
-                    <Star className={`size-5 ${s.favorite ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                    <Star
+                      className={`size-5 ${s.favorite ? "fill-primary text-primary" : "text-muted-foreground"}`}
+                    />
                   </button>
                 </div>
               ))}
             </div>
           ) : null}
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="secondary" className="min-h-12" onClick={() => setMode(mode === "gps" ? "lista" : "gps")}>
+            <Button
+              variant="secondary"
+              className="min-h-12"
+              onClick={() => setMode(mode === "gps" ? "lista" : "gps")}
+            >
               <MapPin className="size-4" /> Postos próximos
             </Button>
-            <Button variant="secondary" className="min-h-12" onClick={() => setMode(mode === "manual" ? "lista" : "manual")}>
+            <Button
+              variant="secondary"
+              className="min-h-12"
+              onClick={() => setMode(mode === "manual" ? "lista" : "manual")}
+            >
               <Plus className="size-4" /> Cadastrar
             </Button>
           </div>
@@ -148,10 +181,16 @@ export function StationPicker({
           {!consent ? (
             <>
               <Notice>
-                Para sugerir postos, o app lê sua localização uma vez e consulta uma base pública
-                de mapas (OpenStreetMap). As sugestões podem estar erradas; você sempre confirma.
+                Para sugerir postos, o app lê sua localização uma vez e consulta uma base pública de
+                mapas (OpenStreetMap). As sugestões podem estar erradas; você sempre confirma.
               </Notice>
-              <Button className="min-h-12 w-full" onClick={() => { setConsent(true); void search(); }}>
+              <Button
+                className="min-h-12 w-full"
+                onClick={() => {
+                  setConsent(true);
+                  void search();
+                }}
+              >
                 Autorizar e buscar
               </Button>
             </>
@@ -170,7 +209,11 @@ export function StationPicker({
                   <p className="numeric text-xs text-muted-foreground">
                     {(s.distanceKm * 1000).toFixed(0)} m · {s.brand || "bandeira não informada"}
                   </p>
-                  <p className="text-xs text-muted-foreground">{[s.address, s.city].filter(Boolean).join(", ") || "endereço não informado no mapa"}{s.cnpj ? ` · CNPJ ${s.cnpj}` : ""}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {[s.address, s.city].filter(Boolean).join(", ") ||
+                      "endereço não informado no mapa"}
+                    {s.cnpj ? ` · CNPJ ${s.cnpj}` : ""}
+                  </p>
                 </button>
               ))}
               {pending ? (
@@ -179,7 +222,9 @@ export function StationPicker({
                 </Button>
               ) : null}
               {!loading ? (
-                <Button variant="ghost" className="w-full" onClick={() => void search()}>Buscar de novo</Button>
+                <Button variant="ghost" className="w-full" onClick={() => void search()}>
+                  Buscar de novo
+                </Button>
               ) : null}
             </>
           )}
@@ -188,14 +233,16 @@ export function StationPicker({
 
       {!selected && mode === "manual" ? (
         <div className="grid grid-cols-2 gap-2 rounded-md border border-border p-3">
-          {([
-            ["name", "Nome *", 2],
-            ["address", "Endereço", 2],
-            ["city", "Cidade", 1],
-            ["brand", "Bandeira", 1],
-            ["cnpj", "CNPJ (opcional)", 1],
-            ["localId", "Identificador", 1],
-          ] as const).map(([k, l, span]) => (
+          {(
+            [
+              ["name", "Nome *", 2],
+              ["address", "Endereço", 2],
+              ["city", "Cidade", 1],
+              ["brand", "Bandeira", 1],
+              ["cnpj", "CNPJ (opcional)", 1],
+              ["localId", "Identificador", 1],
+            ] as const
+          ).map(([k, l, span]) => (
             <label key={k} className={`block ${span === 2 ? "col-span-2" : ""}`}>
               <span className="label-tec">{l}</span>
               <input
@@ -208,10 +255,17 @@ export function StationPicker({
             </label>
           ))}
           <label className="col-span-2 flex min-h-11 items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.favorite} onChange={(e) => setForm({ ...form, favorite: e.target.checked })} className="size-5" />
+            <input
+              type="checkbox"
+              checked={form.favorite}
+              onChange={(e) => setForm({ ...form, favorite: e.target.checked })}
+              className="size-5"
+            />
             Marcar como favorito
           </label>
-          <Button className="col-span-2 min-h-12" onClick={saveManual}>Salvar posto</Button>
+          <Button className="col-span-2 min-h-12" onClick={saveManual}>
+            Salvar posto
+          </Button>
         </div>
       ) : null}
     </div>

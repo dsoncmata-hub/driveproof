@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 import { addFueling, readDb, update, useDb, uid } from "@/lib/dp/store";
 import { syncRecords } from "@/lib/dp/cloudSync";
 
-const MAX_BYTES = 4_000_000;
-
 export function CloudAutoSync({ userId }: { userId: string }) {
   const db = useDb();
   const enabledKey = "driveproof:auto-sync:" + userId;
@@ -28,12 +26,6 @@ export function CloudAutoSync({ userId }: { userId: string }) {
     const snapshot = readDb();
     if (snapshot.activeTripId) {
       setStatus("Viagem em andamento: envio pausado");
-      return;
-    }
-    const json = JSON.stringify(snapshot);
-    if (new TextEncoder().encode(json).length > MAX_BYTES) {
-      setStatus("Limite de 4 MB atingido. Faça backup e entre em contato com suporte.");
-      blocked.current = true;
       return;
     }
     inFlight.current = true;
@@ -75,7 +67,7 @@ export function CloudAutoSync({ userId }: { userId: string }) {
     };
   }, [enabled, ready, validateAndUpload]);
 
-  function createTest() {
+  async function createTest() {
     if (!enabled) {
       toast.error("Ative a sincronização antes do teste.");
       return;
@@ -94,7 +86,7 @@ export function CloudAutoSync({ userId }: { userId: string }) {
       )
     )
       return;
-    addFueling({
+    await addFueling({
       id: uid("dp_sync_test"),
       at: Date.now(),
       odometer: null,
@@ -112,7 +104,7 @@ export function CloudAutoSync({ userId }: { userId: string }) {
     toast.success("Registro fictício criado. Aguarde o status 'Sincronizado na nuvem'.");
   }
 
-  function removeTest() {
+  async function removeTest() {
     const count = db.fuelings.filter((f) => f.demo && f.id.startsWith("dp_sync_test_")).length;
     if (!count) return;
     if (
@@ -123,7 +115,7 @@ export function CloudAutoSync({ userId }: { userId: string }) {
       )
     )
       return;
-    update((d) => ({
+    await update((d) => ({
       ...d,
       fuelings: d.fuelings.filter((f) => !(f.demo && f.id.startsWith("dp_sync_test_"))),
     }));
