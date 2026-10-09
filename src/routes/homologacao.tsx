@@ -113,8 +113,9 @@ function FieldQA() {
           observations:form.observations,status:form.status
         }).select("id").single();
         if(error)throw error;
-        reportId=data.id;setId(reportId);
+        reportId=data.id as string;setId(reportId);
       }
+      if(!reportId)throw Error("Não foi possível obter identificador do relatório.");
       uploadedPath=[user.id,reportId,checkId,crypto.randomUUID()+"."+ext[file.type]].join("/");
       const upload=await supabase.storage.from("carvrum-qa-evidence").upload(uploadedPath,file,{contentType:file.type,upsert:false});
       if(upload.error)throw upload.error;
