@@ -3,6 +3,9 @@ import { useState } from "react";
 import { FileDown, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/dp/AppShell";
+import { NearbyStations } from "@/components/dp/NearbyStations";
+import { FinancialDashboard } from "@/components/dp/FinancialDashboard";
+import { ReceiptImport } from "@/components/dp/ReceiptImport";
 import { EvidenceCapture } from "@/components/dp/EvidenceCapture";
 import { EvidenceList } from "@/components/dp/EvidenceList";
 import { Notice, Panel, Row, Stat } from "@/components/dp/primitives";
@@ -114,6 +117,9 @@ function Abastecimentos() {
       }
     >
       <div className="space-y-4">
+        <NearbyStations />
+        <FinancialDashboard />
+        <ReceiptImport onExtract={data => { setOpen(true); if(data.liters)setLiters(data.liters); if(data.price)setPrice(data.price); if(data.total)setTotal(data.total); if(data.fuel)setFuelType(data.fuel as FuelType); }} />
         {open ? (
           <Panel title="Novo abastecimento">
             <div className="grid grid-cols-2 gap-3">
