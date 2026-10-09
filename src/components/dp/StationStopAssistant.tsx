@@ -13,7 +13,7 @@ export function StationStopAssistant(){
  const last=engine.state.lastPoint;
  useEffect(()=>{if(!enabled||!db.activeTripId||!last||engine.state.status!=="ativo"||engine.state.accuracy==null||engine.state.accuracy>70||engine.state.currentKmh>3||Date.now()-last.t>30000){stopped.current=0;return;}
  const now=Date.now();if(!stopped.current)stopped.current=now;
- if(now-stopped.current<30000||now-lastAsked.current<3600000)return;
+ if(now-stopped.current<70000||now-lastAsked.current<3600000)return;
  let alive=true;
  void supabase.from("carvrum_station_prices").select("station_name,station_address,latitude,longitude")
   .gte("latitude",last.lat-.002).lte("latitude",last.lat+.002)
@@ -26,7 +26,7 @@ export function StationStopAssistant(){
  return ()=>{alive=false;};
  },[enabled,db.activeTripId,last,engine.state.status,engine.state.accuracy,engine.state.currentKmh]);
  return <Panel title="Detecção de parada em posto">
-  <label className="flex gap-2 text-sm items-center"><input type="checkbox" checked={enabled} onChange={e=>{setEnabled(e.target.checked);if(!e.target.checked){setSuggestion(null);stopped.current=0;}}}/>Ativar sugestão de abastecimento após 30 segundos parado</label>
+  <label className="flex gap-2 text-sm items-center"><input type="checkbox" checked={enabled} onChange={e=>{setEnabled(e.target.checked);if(!e.target.checked){setSuggestion(null);stopped.current=0;}}}/>Ativar sugestão de abastecimento após 70 segundos parado</label>
   <p className="mt-2 text-xs text-muted-foreground">Somente com viagem ativa, localização precisa e posto mapeado. O GPS da web pode pausar em segundo plano. Não registra abastecimento automaticamente e silencia por uma hora após sugerir.</p>
   {suggestion&&<div className="mt-3 space-y-2 rounded-md border p-3">
    <p className="text-sm">Parada próxima de <strong>{suggestion.station_name}</strong> — {suggestion.station_address}. Você abasteceu aqui?</p>
