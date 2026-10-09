@@ -54,8 +54,8 @@ type Report = {
   created_at: string;
 };
 const empty = () => ({
-  device_platform: "android" as Report["device_platform"],
-  device_model: "", os_version: "", tester_name: "",
+  device_platform: (typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent) ? "ios" : typeof navigator !== "undefined" && /Android/.test(navigator.userAgent) ? "android" : "web") as Report["device_platform"],
+  device_model: "", os_version: typeof navigator !== "undefined" ? navigator.userAgent.slice(0,180) : "", tester_name: "",
   test_date: new Date().toISOString().slice(0, 10),
   trip_label: "", commit_sha: "", measures: {} as Measures,
   checks: {} as Checks, observations: "", status: "draft" as Report["status"],
@@ -86,6 +86,8 @@ function FieldQA() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [activeTest, setActiveTest] = useState("01");
 
   const [attachments,setAttachments]=useState<Record<string,{id:string;object_path:string;original_filename:string;check_id:string}[]>>({});
   const [uploading,setUploading]=useState(false);
@@ -217,6 +219,50 @@ function FieldQA() {
           <p className="mb-3 text-sm">Entre na sua conta CARVRUM antes de registrar resultados. O relatório só será visível ao titular autenticado.</p>
           <Link to="/" className="underline">Ir para login</Link>
         </Panel> : <>
+          <Panel title={`Teste rápido — ${reviewed}/20 registrados`}>
+            <p className="mb-3 text-sm text-muted-foreground">Escolha um teste, marque o resultado e salve. Preencha detalhes apenas quando precisar.</p>
+            <label className="block text-sm">O que você está testando?
+              <select className={fieldClass} value={activeTest} onChange={e=>setActiveTest(e.target.value)}>
+                {TESTS.map(([key,title])=><option key={key} value={key}>{key}. {title}</option>)}
+              </select>
+            </label>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button type="button" variant={form.checks[activeTest]?.result==="aprovado"?"default":"secondary"}
+                onClick={()=>setCheck(activeTest,{result:"aprovado"})}>Aprovado</Button>
+              <Button type="button" variant={form.checks[activeTest]?.result==="reprovado"?"destructive":"secondary"}
+                onClick={()=>setCheck(activeTest,{result:"reprovado"})}>Reprovado</Button>
+              <Button type="button" variant="outline" onClick={()=>setCheck(activeTest,{result:"bloqueado"})}>Não consegui testar</Button>
+              <Button type="button" variant="outline" onClick={()=>setCheck(activeTest,{result:"pendente"})}>Limpar resultado</Button>
+            </div>
+            {form.checks[activeTest]?.result==="reprovado"&&
+              <label className="mt-3 block text-sm">O que deu errado?
+                <textarea className={fieldClass} rows={2} value={form.checks[activeTest]?.note??""}
+                  onChange={e=>setCheck(activeTest,{note:e.target.value})} placeholder="Descreva o problema em uma frase."/>
+              </label>}
+            <div className="mt-3 space-y-2">
+              <label className="block text-xs">Anexar foto ou vídeo, se necessário (máximo 20 MB)
+                <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
+                  className="mt-1 block w-full" disabled={uploading}
+                  onChange={e=>{const file=e.target.files?.[0];if(file)void addEvidence(activeTest,file);e.target.value="";}}/>
+              </label>
+              {(attachments[activeTest]??[]).map(item=><div key={item.id} className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="flex-1 break-all">{item.original_filename}</span>
+                <Button type="button" size="sm" variant="secondary" onClick={()=>void viewEvidence(item.object_path)}>Abrir</Button>
+                <Button type="button" size="sm" variant="outline" onClick={()=>void removeEvidence(item)}>Excluir</Button>
+              </div>)}
+              {form.checks[activeTest]?.result==="reprovado"&&
+                <Button type="button" size="sm" variant="secondary" onClick={()=>openIssueDraft(activeTest)}>Preparar issue no GitHub</Button>}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">{completed} aprovados · {failed} reprovados · {blocked} bloqueados</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button disabled={busy||uploading} onClick={()=>void save()}>{busy?"Salvando…":"Salvar teste"}</Button>
+              <Button variant="outline" onClick={()=>{const i=TESTS.findIndex(([key])=>key===activeTest);setActiveTest(TESTS[(i+1)%TESTS.length]?.[0] ?? "01");}}>Próximo teste</Button>
+            </div>
+          </Panel>
+          <Button variant="outline" className="w-full" onClick={()=>setShowDetails(!showDetails)}>
+            {showDetails?"Ocultar detalhes técnicos":"Mostrar detalhes técnicos (opcional)"}
+          </Button>
+          {showDetails&&<>
           <Panel title="Identificação do ensaio">
             <p className="mb-3 text-xs text-muted-foreground">Conta: {user.email} · ID: {id ?? "novo relatório"}</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -242,6 +288,7 @@ function FieldQA() {
               </label>
             </div>
           </Panel>
+
           <Panel title="Medições">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {MEASURES.map(([key, title]) => <label key={key} className="text-sm">{title}
@@ -250,44 +297,8 @@ function FieldQA() {
               </label>)}
             </div>
           </Panel>
-          <Panel title={`Checklist — ${reviewed}/20 executados`}>
-            <p className="mb-3 text-sm text-muted-foreground">
-              {completed} aprovados · {failed} reprovados · {blocked} bloqueados
-            </p>
-            <div className="space-y-4">
-              {TESTS.map(([key, title]) => <div key={key} className="rounded-lg border p-3">
-                <p className="mb-2 text-sm font-medium">{key}. {title}</p>
-                <label className="text-xs">Resultado
-                  <select className={fieldClass} value={form.checks[key]?.result ?? "pendente"}
-                    onChange={e => setCheck(key, { result: e.target.value as Check["result"] })}>
-                    <option value="pendente">Não testado</option>
-                    <option value="aprovado">Aprovado</option>
-                    <option value="reprovado">Reprovado</option>
-                    <option value="bloqueado">Bloqueado</option>
-                  </select>
-                </label>
-                <label className="mt-2 block text-xs">Anotação / evidência
-                  <textarea rows={2} className={fieldClass} value={form.checks[key]?.note ?? ""}
-                    onChange={e => setCheck(key, { note: e.target.value })}
-                    placeholder="Resultado observado, erro, horário e como reproduzir."/>
-                  <div className="mt-3 space-y-2">
-                    <label className="block text-xs">Foto ou vídeo (máximo 20 MB)
-                      <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
-                        className="mt-1 block w-full" disabled={uploading}
-                        onChange={e=>{const file=e.target.files?.[0];if(file)void addEvidence(key,file);e.target.value="";}}/>
-                    </label>
-                    {(attachments[key]??[]).map(item=><div key={item.id} className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="flex-1 break-all">{item.original_filename}</span>
-                      <Button type="button" size="sm" variant="secondary" onClick={()=>void viewEvidence(item.object_path)}>Abrir</Button>
-                      <Button type="button" size="sm" variant="outline" onClick={()=>void removeEvidence(item)}>Excluir</Button>
-                    </div>)}
-                    {form.checks[key]?.result==="reprovado"&&
-                      <Button type="button" size="sm" variant="secondary" onClick={()=>openIssueDraft(key)}>Preparar issue no GitHub</Button>}
-                  </div>
-                </label>
-              </div>)}
-            </div>
-          </Panel>
+
+          </>}
           <Panel title="Conclusão">
             <label className="block text-sm">Observações gerais
               <textarea rows={4} className={fieldClass} value={form.observations}
