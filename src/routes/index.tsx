@@ -39,6 +39,15 @@ function Home() {
     <AppShell title="Início" subtitle={db.vehicle.name}>
       <div className="space-y-4">
         <CloudAccount />
+        <Panel title="Laboratório de homologação">
+          <p className="mb-3 text-sm text-muted-foreground">
+            Registre os testes de campo da versão 0.3.0, medições, falhas e evidências.
+            Os relatórios ficam separados das viagens dos clientes.
+          </p>
+          <Button asChild variant="secondary" className="min-h-12 w-full">
+            <Link to="/homologacao">Abrir relatório de testes</Link>
+          </Button>
+        </Panel>
         <Notice tone="warning">
           O CARVRUM registra evidências e condições de teste. Ele não faz diagnóstico automotivo nem
           produz prova pericial.
