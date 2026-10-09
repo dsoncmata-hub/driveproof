@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Play, Radar, Square, Satellite, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/dp/AppShell";
+import { StationStopAssistant } from "@/components/dp/StationStopAssistant";
 import { PrivacyControl } from "@/components/dp/PrivacyControl";
 import { ChecklistForm } from "@/components/dp/ChecklistForm";
 import { EvidenceCapture } from "@/components/dp/EvidenceCapture";
@@ -145,6 +146,7 @@ function ViagemPage() {
       <div className="space-y-4">
         <DrivingWarning />
         <PrivacyControl />
+        <StationStopAssistant />
         <Notice tone="warning">
           Nesta versão web, mantenha o aplicativo visível para registrar o GPS. Tela bloqueada ou
           segundo plano podem interromper as medições; trechos sem amostras não são estimados.
