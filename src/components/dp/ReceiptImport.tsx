@@ -13,6 +13,7 @@ function parseReceipt(text:string):Extracted{
 }
 export function ReceiptImport({onExtract}:{onExtract:(data:Extracted)=>void}){
  const camera=useRef<HTMLInputElement>(null);
+ const qrCamera=useRef<HTMLInputElement>(null);
  const [fallback,setFallback]=useState(false),[notice,setNotice]=useState("");
  const [text,setText]=useState("");
  const [image,setImage]=useState<string|null>(null);
@@ -25,6 +26,22 @@ export function ReceiptImport({onExtract}:{onExtract:(data:Extracted)=>void}){
   setFallback(true);
   setNotice("O QR Code identifica a consulta da NFC-e, mas os itens de combustível não puderam ser extraídos com segurança. Tire uma foto da nota para continuar.");
   camera.current?.click();
+ }
+ async function scanQrPhoto(file:File|undefined){
+  if(!file)return;
+  try{
+   const Detector=(globalThis as unknown as {BarcodeDetector?:new (o:{formats:string[]})=>{detect:(image:ImageBitmap)=>Promise<{rawValue:string}[]>}}).BarcodeDetector;
+   if(!Detector)throw Error("Leitor de QR Code não disponível neste aparelho.");
+   const bitmap=await createImageBitmap(file);
+   let results:{rawValue:string}[]=[];
+   try{results=await new Detector({formats:["qr_code"]}).detect(bitmap);}finally{bitmap.close();}
+   if(!results[0]?.rawValue)throw Error("QR Code não identificado na imagem.");
+   handleQr(results[0].rawValue);
+  }catch{
+   setNotice("Não consegui extrair os dados da NFC-e pelo QR Code. Fotografe a nota para preencher o abastecimento.");
+   setFallback(true);
+   camera.current?.click();
+  }
  }
  function handleFile(file:File|undefined){
   if(!file)return;
@@ -45,9 +62,11 @@ export function ReceiptImport({onExtract}:{onExtract:(data:Extracted)=>void}){
    <input value={link} onChange={e=>setLink(e.target.value)} placeholder="Cole o link lido ou a chave NFC-e" className="mt-1 min-h-11 w-full rounded-md border border-input bg-secondary/40 px-3"/>
   </label>
   <div className="mt-2 flex flex-wrap gap-2">
-   <Button type="button" variant="secondary" onClick={()=>handleQr(link)}>Consultar QR Code informado</Button>
+   <Button type="button" variant="secondary" onClick={()=>qrCamera.current?.click()}>Ler QR Code da nota</Button>
+   <Button type="button" variant="secondary" onClick={()=>handleQr(link)}>Usar código informado</Button>
    <Button type="button" onClick={()=>{setFallback(true);camera.current?.click();}}>Fotografar nota</Button>
   </div>
+  <input ref={qrCamera} type="file" accept="image/*" capture="environment" className="sr-only" aria-label="Fotografar QR Code" onChange={e=>void scanQrPhoto(e.target.files?.[0])}/>
   <input ref={camera} type="file" accept="image/*" capture="environment" className="sr-only" aria-label="Capturar nota fiscal" onChange={e=>handleFile(e.target.files?.[0])}/>
   {notice&&<p role="status" className="mt-3 text-sm">{notice}</p>}
   {fallback&&<div className="mt-3 space-y-3">
