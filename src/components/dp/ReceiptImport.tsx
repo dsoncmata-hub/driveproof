@@ -1,7 +1,7 @@
 import { useRef,useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Notice,Panel } from "@/components/dp/primitives";
-type Extracted={liters?:string;price?:string;total?:string;fuel?:string;station?:string};
+type Extracted={liters?:string|undefined;price?:string|undefined;total?:string|undefined;fuel?:string|undefined;station?:string|undefined};
 function parseReceipt(text:string):Extracted{
  const normalized=text.replace(/\r/g,"");
  const value=(pattern:RegExp)=>normalized.match(pattern)?.[1]?.replace(",",".");
