@@ -9,5 +9,5 @@ xcrun simctl launch "$CARVRUM_SIMULATOR_ID" com.dsoncmata.carvrum
 sleep 8
 mkdir -p ios/smoke
 xcrun simctl io "$CARVRUM_SIMULATOR_ID" screenshot ios/smoke/carvrum-launch.png
-xcrun simctl spawn "$CARVRUM_SIMULATOR_ID" launchctl list | rg 'com\.dsoncmata\.carvrum'
+xcrun simctl spawn "$CARVRUM_SIMULATOR_ID" launchctl list | grep -E 'com\.dsoncmata\.carvrum'
 xcrun simctl shutdown "$CARVRUM_SIMULATOR_ID"

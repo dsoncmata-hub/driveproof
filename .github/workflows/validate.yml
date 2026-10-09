@@ -90,8 +90,10 @@ jobs:
       - run: npm run native:sync
       - run: xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/DerivedData CODE_SIGNING_ALLOWED=NO build
       - name: Launch packaged iOS app and capture visual smoke
+        timeout-minutes: 15
         run: bash scripts/ios-smoke.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
         with:
           name: carvrum-ios-simulator-test-package
           path: |
