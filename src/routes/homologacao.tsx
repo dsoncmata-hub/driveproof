@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAccount } from "@/components/dp/AccountProvider";
 import { supabase } from "@/lib/dp/supabase";
 import { download } from "@/lib/dp/exporters";
+import { useDb } from "@/lib/dp/store";
 
 export const Route = createFileRoute("/homologacao")({
   head: () => ({ meta: [{ title: "Homologação de campo — CARVRUM" }] }),
@@ -79,6 +80,7 @@ const MEASURES = [
 
 function FieldQA() {
   const { user, ready } = useAccount();
+  const operational = useDb();
   const [form, setForm] = useState(empty);
   const [id, setId] = useState<string | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
@@ -180,6 +182,38 @@ function FieldQA() {
   const setCheck = (key: string, patch: Partial<Check>) =>
     setForm(current => ({ ...current, checks: { ...current.checks,
       [key]: { result: "pendente", note: "", ...current.checks[key], ...patch } } }));
+  function importObservedData() {
+    const realTrips=operational.trips.filter(t=>t.finished && !t.label.toLowerCase().includes("demo"));
+    const trip=realTrips[0];
+    const fixes=trip?.points.length??0;
+    const usable=trip && fixes>=2 && trip.distanceKm>0;
+    const previous=operational.activeTripId !== null;
+    const photoCount=operational.evidences.filter(e=>e.sha256 && e.sizeBytes>0).length;
+    const summary=[
+      trip ? "Última viagem: "+trip.label+"; GPS: "+fixes+" pontos; "+trip.distanceKm.toFixed(3)+" km." : "Nenhuma viagem finalizada disponível.",
+      "Fotos com metadados: "+photoCount+".",
+      "Não comprova GPS em segundo plano, restauração remota ou qualidade visual da foto."
+    ].join(" ");
+    setForm(current=>({
+      ...current,
+      measures:{
+        ...current.measures,
+        gps_distance:trip?.distanceKm.toFixed(3)??"",
+        gps_points:String(fixes),
+        duration:trip?.endedAt ? ((trip.endedAt-trip.startedAt)/60000).toFixed(1) : "",
+        qa_photo_metadata_count:String(photoCount),
+        qa_active_trip_detected:String(previous),
+      },
+      checks:{
+        ...current.checks,
+        ...(usable && current.checks["07"]?.result!=="reprovado" ? {
+          "07":{result:"pendente" as const,note:"Medição GPS importada automaticamente: "+fixes+" pontos, "+trip.distanceKm.toFixed(3)+" km. Aguardando validação em campo."}
+        }:{}),
+      },
+      observations:current.observations ? current.observations+"\n"+summary : summary
+    }));
+    setMessage("Medições importadas. Os critérios continuam pendentes até serem comprovados; não houve aprovação automática.");
+  }
   const completed = TESTS.filter(([key]) => form.checks[key]?.result === "aprovado").length;
   const failed = TESTS.filter(([key]) => form.checks[key]?.result === "reprovado").length;
   const blocked = TESTS.filter(([key]) => form.checks[key]?.result === "bloqueado").length;
@@ -219,6 +253,10 @@ function FieldQA() {
           <p className="mb-3 text-sm">Entre na sua conta CARVRUM antes de registrar resultados. O relatório só será visível ao titular autenticado.</p>
           <Link to="/" className="underline">Ir para login</Link>
         </Panel> : <>
+          <Panel title="Dados que o CARVRUM já mediu">
+            <p className="mb-3 text-sm">Importe pontos GPS, distância e duração da última viagem finalizada e contagem de fotos, sem digitar novamente. Não altera viagens.</p>
+            <Button variant="secondary" onClick={importObservedData}>Importar medições do aplicativo</Button>
+          </Panel>
           <Panel title={`Teste rápido — ${reviewed}/20 registrados`}>
             <p className="mb-3 text-sm text-muted-foreground">Escolha um teste, marque o resultado e salve. Preencha detalhes apenas quando precisar.</p>
             <label className="block text-sm">O que você está testando?
