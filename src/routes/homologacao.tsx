@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAccount } from "@/components/dp/AccountProvider";
 import { supabase } from "@/lib/dp/supabase";
 import { download } from "@/lib/dp/exporters";
+import { LiveGpsTest } from "@/components/dp/LiveGpsTest";
 
 export const Route = createFileRoute("/homologacao")({
   head: () => ({ meta: [{ title: "Homologação de campo — CARVRUM" }] }),
@@ -226,6 +227,11 @@ function FieldQA() {
                 {TESTS.map(([key,title])=><option key={key} value={key}>{key}. {title}</option>)}
               </select>
             </label>
+            {activeTest === "07" && <div className="mt-3">
+              <LiveGpsTest onResult={values=>setForm(current=>({
+                ...current, measures: {...current.measures,...values}
+              }))}/>
+            </div>}
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Button type="button" variant={form.checks[activeTest]?.result==="aprovado"?"default":"secondary"}
                 onClick={()=>setCheck(activeTest,{result:"aprovado"})}>Aprovado</Button>
