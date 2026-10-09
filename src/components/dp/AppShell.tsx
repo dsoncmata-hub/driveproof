@@ -26,7 +26,7 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur no-print">
-        <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
+        <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <div className="min-w-0">
             <p className="label-tec">CARVRUM · registro técnico</p>
             <h1 className="truncate text-lg font-semibold">{title}</h1>
