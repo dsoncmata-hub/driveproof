@@ -86,6 +86,81 @@ function FieldQA() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+
+  const [attachments,setAttachments]=useState<Record<string,{id:string;object_path:string;original_filename:string;check_id:string}[]>>({});
+  const [uploading,setUploading]=useState(false);
+  const reloadAttachments=useCallback(async(reportId:string)=>{
+    const {data,error}=await supabase.from("carvrum_qa_attachments").select("id,object_path,original_filename,check_id").eq("report_id",reportId);
+    if(error){setMessage(error.message);return;}
+    const grouped:Record<string,{id:string;object_path:string;original_filename:string;check_id:string}[]>={};
+    for(const row of data??[]){(grouped[row.check_id]??=[]).push(row);}
+    setAttachments(grouped);
+  },[]);
+  useEffect(()=>{if(id&&user)void reloadAttachments(id);else setAttachments({});},[id,user,reloadAttachments]);
+  async function addEvidence(checkId:string,file:File){
+    if(!user)return;
+    const ext:Record<string,string>={"image/jpeg":"jpg","image/png":"png","image/webp":"webp","video/mp4":"mp4","video/webm":"webm","video/quicktime":"mov"};
+    if(!ext[file.type]||!file.size||file.size>20*1024*1024){setMessage("Formato inválido ou arquivo acima de 20 MB.");return;}
+    setUploading(true);setMessage("");
+    let uploadedPath="";
+    try{
+      let reportId=id;
+      if(!reportId){
+        const {data,error}=await supabase.from("carvrum_qa_reports").insert({
+          user_id:user.id,app_version:VERSION,device_platform:form.device_platform,device_model:form.device_model,
+          os_version:form.os_version,tester_name:form.tester_name,test_date:form.test_date,
+          trip_label:form.trip_label,commit_sha:form.commit_sha||null,checks:form.checks,measures:form.measures,
+          observations:form.observations,status:form.status
+        }).select("id").single();
+        if(error)throw error;
+        reportId=data.id as string;setId(reportId);
+      }
+      if(!reportId)throw Error("Não foi possível obter identificador do relatório.");
+      uploadedPath=[user.id,reportId,checkId,crypto.randomUUID()+"."+ext[file.type]].join("/");
+      const upload=await supabase.storage.from("carvrum-qa-evidence").upload(uploadedPath,file,{contentType:file.type,upsert:false});
+      if(upload.error)throw upload.error;
+      const insert=await supabase.from("carvrum_qa_attachments").insert({user_id:user.id,report_id:reportId,
+        check_id:checkId,object_path:uploadedPath,original_filename:file.name,mime_type:file.type,bytes:file.size});
+      if(insert.error)throw insert.error;
+      await reloadAttachments(reportId);
+      setMessage("Evidência salva em armazenamento privado.");
+    }catch(e){
+      if(uploadedPath)await supabase.storage.from("carvrum-qa-evidence").remove([uploadedPath]);
+      setMessage(e instanceof Error?e.message:"Falha no envio");
+    }finally{setUploading(false);}
+  }
+  async function viewEvidence(path:string){
+    const {data,error}=await supabase.storage.from("carvrum-qa-evidence").createSignedUrl(path,60);
+    if(error||!data){setMessage("Não foi possível abrir o arquivo.");return;}
+    window.open(data.signedUrl,"_blank","noopener,noreferrer");
+  }
+  async function removeEvidence(item:{id:string;object_path:string}){
+    const {error}=await supabase.storage.from("carvrum-qa-evidence").remove([item.object_path]);
+    if(error){setMessage(error.message);return;}
+    const deleted=await supabase.from("carvrum_qa_attachments").delete().eq("id",item.id);
+    if(deleted.error){setMessage(deleted.error.message);return;}
+    if(id)await reloadAttachments(id);
+  }
+  function openIssueDraft(key:string){
+    if(!id){setMessage("Salve o relatório antes de abrir uma issue.");return;}
+    const test=TESTS.find(([k])=>k===key);
+    if(!test||form.checks[key]?.result!=="reprovado")return;
+    const body=[
+      "## Falha CARVRUM", "Relatório: "+id, "Teste: "+key+" — "+test[1],
+      "Versão: "+VERSION,"Commit: "+(form.commit_sha||"não informado"),
+      "Plataforma: "+form.device_platform,"Aparelho: "+form.device_model,
+      "Sistema: "+form.os_version,
+      "## Comportamento observado",form.checks[key]?.note||"Não descrito",
+      "## Passos para reproduzir","Preencher no GitHub.",
+      "## Evidências",
+      String((attachments[key]??[]).length)+" arquivo(s) privados no relatório CARVRUM. Não publicar GPS, rostos, placas ou links temporários.",
+      "## Reteste","- [ ] Correção aplicada\n- [ ] Reteste validado"
+    ].join("\n\n");
+    const query=new URLSearchParams({title:"[QA]["+VERSION+"]["+key+"] "+test[1],body});
+    window.open("https://github.com/dsoncmata-hub/driveproof/issues/new?"+query.toString(),"_blank","noopener,noreferrer");
+    setMessage("Rascunho aberto no GitHub. Clique em Submit new issue para efetivamente criá-la.");
+  }
+
   const refresh = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -195,6 +270,20 @@ function FieldQA() {
                   <textarea rows={2} className={fieldClass} value={form.checks[key]?.note ?? ""}
                     onChange={e => setCheck(key, { note: e.target.value })}
                     placeholder="Resultado observado, erro, horário e como reproduzir."/>
+                  <div className="mt-3 space-y-2">
+                    <label className="block text-xs">Foto ou vídeo (máximo 20 MB)
+                      <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
+                        className="mt-1 block w-full" disabled={uploading}
+                        onChange={e=>{const file=e.target.files?.[0];if(file)void addEvidence(key,file);e.target.value="";}}/>
+                    </label>
+                    {(attachments[key]??[]).map(item=><div key={item.id} className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="flex-1 break-all">{item.original_filename}</span>
+                      <Button type="button" size="sm" variant="secondary" onClick={()=>void viewEvidence(item.object_path)}>Abrir</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={()=>void removeEvidence(item)}>Excluir</Button>
+                    </div>)}
+                    {form.checks[key]?.result==="reprovado"&&
+                      <Button type="button" size="sm" variant="secondary" onClick={()=>openIssueDraft(key)}>Preparar issue no GitHub</Button>}
+                  </div>
                 </label>
               </div>)}
             </div>
