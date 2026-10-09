@@ -256,7 +256,7 @@ function FieldQA() {
             <p className="mt-3 text-xs text-muted-foreground">{completed} aprovados · {failed} reprovados · {blocked} bloqueados</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button disabled={busy||uploading} onClick={()=>void save()}>{busy?"Salvando…":"Salvar teste"}</Button>
-              <Button variant="outline" onClick={()=>{const i=TESTS.findIndex(([key])=>key===activeTest);setActiveTest(TESTS[(i+1)%TESTS.length][0]);}}>Próximo teste</Button>
+              <Button variant="outline" onClick={()=>{const i=TESTS.findIndex(([key])=>key===activeTest);setActiveTest(TESTS[(i+1)%TESTS.length]?.[0] ?? "01");}}>Próximo teste</Button>
             </div>
           </Panel>
           <Button variant="outline" className="w-full" onClick={()=>setShowDetails(!showDetails)}>
