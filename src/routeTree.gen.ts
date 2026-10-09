@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AbastecimentosRouteImport } from './routes/abastecimentos'
 import { Route as ExcluirContaRouteImport } from './routes/excluir-conta'
 import { Route as HistoricoRouteImport } from './routes/historico'
+import { Route as HomologacaoRouteImport } from './routes/homologacao'
 import { Route as MetodologiaRouteImport } from './routes/metodologia'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
@@ -39,6 +40,11 @@ const ExcluirContaRoute = ExcluirContaRouteImport.update({
 const HistoricoRoute = HistoricoRouteImport.update({
   id: '/historico',
   path: '/historico',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomologacaoRoute = HomologacaoRouteImport.update({
+  id: '/homologacao',
+  path: '/homologacao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MetodologiaRoute = MetodologiaRouteImport.update({
@@ -78,6 +84,7 @@ const HistoricoTripIdRoute = HistoricoTripIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/homologacao': typeof HomologacaoRoute
   '/': typeof IndexRoute
   '/abastecimentos': typeof AbastecimentosRoute
   '/excluir-conta': typeof ExcluirContaRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/historico/': typeof HistoricoIndexRoute
 }
 export interface FileRoutesByTo {
+  '/homologacao': typeof HomologacaoRoute
   '/': typeof IndexRoute
   '/abastecimentos': typeof AbastecimentosRoute
   '/excluir-conta': typeof ExcluirContaRoute
@@ -103,6 +111,7 @@ export interface FileRoutesByTo {
   '/historico': typeof HistoricoIndexRoute
 }
 export interface FileRoutesById {
+  '/homologacao': typeof HomologacaoRoute
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/abastecimentos': typeof AbastecimentosRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/abastecimentos'
     | '/excluir-conta'
     | '/historico'
+    | '/homologacao'
     | '/metodologia'
     | '/privacidade'
     | '/relatorios'
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/historico/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/homologacao'
     | '/'
     | '/abastecimentos'
     | '/excluir-conta'
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '/historico/$tripId'
     | '/historico'
   id:
+    | '/homologacao'
     | '__root__'
     | '/'
     | '/abastecimentos'
@@ -158,6 +170,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  HomologacaoRoute: typeof HomologacaoRoute
   IndexRoute: typeof IndexRoute
   AbastecimentosRoute: typeof AbastecimentosRoute
   ExcluirContaRoute: typeof ExcluirContaRoute
@@ -197,6 +210,13 @@ declare module '@tanstack/react-router' {
       path: '/historico'
       fullPath: '/historico'
       preLoaderRoute: typeof HistoricoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/homologacao': {
+      id: '/homologacao'
+      path: '/homologacao'
+      fullPath: '/homologacao'
+      preLoaderRoute: typeof HomologacaoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/metodologia': {
@@ -266,6 +286,7 @@ const HistoricoRouteWithChildren = HistoricoRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
+  HomologacaoRoute: HomologacaoRoute,
   IndexRoute: IndexRoute,
   AbastecimentosRoute: AbastecimentosRoute,
   ExcluirContaRoute: ExcluirContaRoute,
